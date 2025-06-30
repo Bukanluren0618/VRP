@@ -1,0 +1,53 @@
+# HDT_Swapping_Optimization/src/common/config_final.py
+import os
+
+# --- 路径定义 ---
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+RESULTS_DIR = os.path.join(PROJECT_ROOT, "results")
+RAW_DATA_DIR = os.path.join(PROJECT_ROOT, "data", "raw")
+
+# --- 原始数据文件名 ---
+CHARGE_LOAD_FILENAME = "充电负荷报表-海宜路1、2号5月.csv"
+BATTERY_SOC_FILENAME = "电池SOC数据.csv"
+
+# --- 时间离散化 ---
+TIME_HORIZON_HOURS = 24
+TIME_STEP_MINUTES = 30
+TOTAL_TIME_STEPS = int(TIME_HORIZON_HOURS * 60 / TIME_STEP_MINUTES)
+TIME_STEP_HOURS = TIME_STEP_MINUTES / 60.0
+
+# --- 经济与惩罚参数 ---
+MANPOWER_COST_PER_HOUR = 150.0
+DELAY_PENALTY_PER_HOUR = 500.0      # 任务延迟的惩罚 (相对较低)
+FIXED_SWAP_COST = 50.0
+EV_UNSERVED_PENALTY_PER_KWH = 10.0
+GRID_PEAK_PRICE_PENALTY = 50.0
+# 新增：一个非常高的惩罚，用于惩罚模型放弃任务的行为
+UNASSIGNED_TASK_PENALTY = 100000.0  # <--- 任务拒绝惩罚
+
+# --- 物理参数 ---
+LOADING_UNLOADING_TIME_HOURS = 0.5
+SWAP_DURATION_HOURS = 0.25
+HDT_BATTERY_CAPACITY_KWH = 350.0
+HDT_MIN_SOC_KWH = HDT_BATTERY_CAPACITY_KWH * 0.15 # 最低安全电量
+HDT_EMPTY_WEIGHT_TON = 10.0
+HDT_BASE_CONSUMPTION_KWH_PER_KM = 1.2
+HDT_WEIGHT_CONSUMPTION_KWH_PER_KM_TON = 0.05
+EV_AVG_CHARGE_DEMAND_KWH = 40.0
+EV_MAX_CHARGE_POWER_KW = 60.0
+BATTERY_CHARGE_EFFICIENCY = 0.95
+BATTERY_DISCHARGE_EFFICIENCY = 0.95
+BATTERY_MAX_CHARGE_POWER_KW = 120
+STATION_MAX_GRID_POWER_KW = {'SwapStation1': 2000, 'SwapStation2': 1500}
+PV_PEAK_POWER_KW = {'SwapStation1': 500, 'SwapStation2': 400}
+STATION_SWAP_BAYS = {'SwapStation1': 2, 'SwapStation2': 1}
+STATION_EV_CHARGERS = {'SwapStation1': 10, 'SwapStation2': 8}
+
+# --- 路网模拟参数 ---
+ROAD_NETWORK_INTERSECTIONS = 20
+ROAD_NETWORK_CONNECTIVITY = 4
+
+# --- 求解器与模型 ---
+SOLVER_NAME = 'gurobi'
+TIME_LIMIT_SECONDS = 600
+BIG_M = 10000
