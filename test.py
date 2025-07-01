@@ -490,6 +490,7 @@ def plot_single_truck(truck_id: int):
     ax.set_title(f'Trajectory of Truck {truck_id}')
     ax.legend(); plt.tight_layout(); plt.show()
 
+
 def print_route_log(truck: Truck):
     for entry in truck.route_log:
         print(entry)
