@@ -9,7 +9,7 @@ def create_final_model(data):
     创建最终版的、经过重构的、保证可行的物流-能源协同优化模型。
     【最终修复版】: 修复了载重、电量和电池库存传播的底层逻辑BUG。
     """
-    print("开始构建最终交付版集成优化模型...")
+    print("开始构建集成优化模型...")
     model = ConcreteModel(name="Robust_HDT_Model")
 
     # --- 1. 集合 ---

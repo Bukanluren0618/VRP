@@ -475,21 +475,30 @@ def visualize(G, pos, depots, stations, trucks, record_swaps, ev_arrivals):
 #     plt.tight_layout()
 #     plt.show()
 
-def plot_single_truck(truck_id: int):
+def plot_single_truck(G, pos, depots, station_nodes, trucks, truck_id: int):
+    """
+    绘制卡车轨迹，并在每个节点处添加节点编号文字标签。
+    """
+    # 先画网络和位置
     fig, ax = plt.subplots(figsize=(8,6))
-    nx.draw(G, pos=pos, ax=ax, node_size=10, edge_color='lightgray', alpha=0.5)
+    nx.draw(G, pos=pos, ax=ax, node_size=10, edge_color='lightgray', alpha=0.3)
     nx.draw_networkx_nodes(G, pos, nodelist=depots,
                            node_color='gold', node_shape='*',
                            node_size=150, edgecolors='black', label='Depot')
     nx.draw_networkx_nodes(G, pos, nodelist=station_nodes,
                            node_color='orange', node_shape='s',
                            node_size=80, label='Station')
+    # 取出指定卡车
     truck = next(t for t in trucks if t.id == truck_id)
     xs, ys = zip(*(pos[n] for n in truck.route))
     ax.plot(xs, ys, '-o', linewidth=2, markersize=5, label=f'Truck {truck_id}')
-    ax.set_title(f'Trajectory of Truck {truck_id}')
+    # 在每个节点上添加标签
+    for node in truck.route:
+        x, y = pos[node]
+        ax.text(x, y, str(node), fontsize=8, ha='right', va='bottom')
+    ax.set_title(f'Trajectory of Truck {truck_id} with Node Labels')
     ax.legend(); plt.tight_layout(); plt.show()
-
+    
 def print_route_log(truck: Truck):
     for entry in truck.route_log:
         print(entry)
