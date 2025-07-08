@@ -2,7 +2,7 @@ import random
 import math
 import numpy as np
 import matplotlib
-matplotlib.use('TkAgg')
+matplotlib.use('Agg')
 # Gurobi 求解器
 from gurobipy import Model, GRB
 from dataclasses import dataclass, field
@@ -255,6 +255,66 @@ def plan_route_greedy(G: nx.Graph, start: int, services: list[int]) -> list[int]
         curr = next_node
         remaining.remove(next_node)
         cargo -= drop_amt
+
+    route.append(start)
+    return route
+
+
+def plan_route_nearest(G: nx.Graph, start: int, tasks: list[ServiceTask]) -> list[int]:
+    """根据距离和载重的贪心策略规划任务顺序"""
+    if not tasks:
+        return [start, start]
+
+    remaining = tasks.copy()
+    curr = start
+    cargo = sum(t.weight for t in tasks)
+    max_payload = MAX_PAYLOAD_KG
+    route = [start]
+
+    while remaining:
+        def cost(task: ServiceTask) -> float:
+            dist = nx.shortest_path_length(G, curr, task.node, weight="distance")
+            return dist * (1 + cargo / max_payload)
+
+        next_task = min(remaining, key=cost)
+        route.append(next_task.node)
+        curr = next_task.node
+        cargo -= next_task.weight
+        remaining.remove(next_task)
+
+    route.append(start)
+    return route
+
+
+def plan_route_with_tasks(G: nx.Graph, start: int, tasks: list[ServiceTask]) -> list[int]:
+    """根据任务权重和时间窗规划路线"""
+    if not tasks:
+        return [start, start]
+
+    remaining = tasks.copy()
+    curr = start
+    cargo = sum(t.weight for t in tasks)
+    max_payload = MAX_PAYLOAD_KG
+    time = 0.0
+    route = [start]
+
+    while remaining:
+        def score(task: ServiceTask) -> float:
+            d_curr = nx.shortest_path_length(G, curr, task.node, weight="distance")
+            d_home = nx.shortest_path_length(G, task.node, start, weight="distance")
+            energy_to = d_curr * (1 + cargo / max_payload)
+            energy_back = d_home * (1 + (cargo - task.weight) / max_payload)
+            arrival = time + d_curr
+            penalty = max(0.0, arrival - task.due) * 1000
+            return energy_to + energy_back + penalty
+
+        next_task = min(remaining, key=score)
+        travel = nx.shortest_path_length(G, curr, next_task.node, weight="distance")
+        time += travel
+        cargo -= next_task.weight
+        curr = next_task.node
+        route.append(curr)
+        remaining.remove(next_task)
 
     route.append(start)
     return route
@@ -625,10 +685,62 @@ def print_service_tasks(trucks: list[Truck]):
         print(f"Truck {t.id} tasks: {info}")
 
 
+def aggregate_demands(trucks: list[Truck]) -> dict[int, float]:
+    """统计每个节点的总卸货需求量"""
+    demand: dict[int, float] = {}
+    for t in trucks:
+        for task in t.tasks:
+            demand[task.node] = demand.get(task.node, 0.0) + task.weight
+    return demand
+
+
+def plot_demand_heatmap(G: nx.Graph,
+                        pos: dict[int, tuple[float, float]],
+                        depots: list[int],
+                        stations: list[int],
+                        demand: dict[int, float]) -> None:
+    """根据卸货需求绘制城市物流热力图"""
+    fig, ax = plt.subplots(figsize=(10, 8))
+    nx.draw_networkx_edges(G, pos, ax=ax, edge_color='lightgray', alpha=0.4)
+    nx.draw_networkx_nodes(G, pos, nodelist=depots,
+                           node_color='gold', node_shape='*',
+                           node_size=150, edgecolors='black',
+                           label='Depot')
+    nx.draw_networkx_nodes(G, pos, nodelist=stations,
+                           node_color='orange', node_shape='s',
+                           node_size=80, label='Station')
+
+    nodes = list(demand.keys())
+    weights = np.array([demand[n] for n in nodes])
+    if len(weights) > 0:
+        norm = plt.Normalize(vmin=weights.min(), vmax=weights.max())
+        cmap = plt.cm.Reds
+        colors = cmap(norm(weights))
+        sizes = 50 + 150 * (weights - weights.min()) / (weights.max() - weights.min() + 1e-6)
+        ax.scatter([pos[n][0] for n in nodes],
+                   [pos[n][1] for n in nodes],
+                   s=sizes, c=colors, cmap=cmap,
+                   edgecolors='black', label='Demand')
+        sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+        sm.set_array([])
+        cbar = plt.colorbar(sm, ax=ax, shrink=0.7)
+        cbar.set_label('Demand Weight')
+
+    ax.set_title('City Logistics Demand Heatmap')
+    ax.legend(loc='upper right', fontsize=8)
+    plt.tight_layout()
+    plt.show()
+
+
+
+
+
 
 if __name__ == '__main__':
     G, pos, depots, station_nodes, stations, trucks, record_swaps, ev_arrivals = simulate()
     print_service_tasks(trucks)
+    demand = aggregate_demands(trucks)
+    plot_demand_heatmap(G, pos, depots, station_nodes, demand)
     service_nodes = [n for t in trucks for n in t.route if n not in depots and n not in station_nodes]
     vrp_routes = solve_with_gurobi(G, depots, stations, service_nodes, trucks)
     visualize(G, pos, depots, stations, trucks, record_swaps, ev_arrivals)
@@ -648,4 +760,5 @@ if __name__ == '__main__':
     # 最后再画轨迹和三坐标图
     plot_single_truck(G, pos, depots, station_nodes, trucks, 15)
     plot_metrics(truck15)
+
 
