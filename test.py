@@ -2,7 +2,7 @@ import random
 import math
 import numpy as np
 import matplotlib
-matplotlib.use('Agg')
+matplotlib.use('TkAgg')
 # Gurobi 求解器
 from gurobipy import Model, GRB
 from dataclasses import dataclass, field
@@ -515,7 +515,6 @@ def solve_with_gurobi(G, depots, stations, service_nodes, trucks):
     # 电量状态变量 e[k,i]
     C = TRUCK_CAPACITY_KWH
     r = TRUCK_CONSUMPTION_RATE
-    e = m.addVars(K, V, lb=0, ub=C, name='e')
 
     # 禁止非站点换电
     for k in K:
@@ -746,7 +745,7 @@ if __name__ == '__main__':
     visualize(G, pos, depots, stations, trucks, record_swaps, ev_arrivals)
 
     # **先重置并跑一遍第15辆车，填充 history 和 route_log**
-    truck15 = next(t for t in trucks if t.id == 15)
+    truck15 = next(t for t in trucks if t.id == 14)
     truck15.reset()
     truck15.drive(G, stations)
 
@@ -758,7 +757,7 @@ if __name__ == '__main__':
     print_events(truck15)
 
     # 最后再画轨迹和三坐标图
-    plot_single_truck(G, pos, depots, station_nodes, trucks, 15)
+    plot_single_truck(G, pos, depots, station_nodes, trucks, 14)
     plot_metrics(truck15)
 
 
