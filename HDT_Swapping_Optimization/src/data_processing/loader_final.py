@@ -3,51 +3,79 @@
 import pandas as pd
 import numpy as np
 import os
+import networkx as nx
 from src.common import config_final as config
 from src.simulation import road_network
 
 
 def create_final_scenario():
     """
-    创建最终版的、基于真实路网的、包含所有细节的综合场景数据。
+    【最终耦合版】: 创建包含交通路网和配电网的耦合场景，并设定为城市多点配送(CVRP)模式。
     """
-    print("开始创建最终版综合场景...")
+    print("开始创建最终耦合版综合场景...")
 
-    # --- 1. 定义关键位置节点 ---
+    # --- 1. 定义交通网络与客户点 (CVRP场景) ---
+    # 仓库位于城外，客户点和换电站位于城内
     key_locations = {
-        'Depot': (0, 0),
-        'Task1_Pickup': (80, 60), 'Task1_Delivery': (-20, 70),
-        'Task2_Pickup': (40, -30), 'Task2_Delivery': (90, -50),
-        'Task3_Pickup': (-50, -80), 'Task3_Delivery': (-80, 20),
+        'Depot': (-120, -120),
+        'Customer1': (80, 60),
+        'Customer2': (40, -30),
+        'Customer3': (-50, -80),
+        'Customer4': (20, 90),
+        'Customer5': (-80, 20),
         'SwapStation1': (10, 80),
         'SwapStation2': (-20, -60),
     }
 
-    # --- 2. 创建路网并计算路径 ---
-    G = road_network.create_road_network(key_locations)
-    dist_matrix, path_matrix = road_network.get_path_and_distance_matrices(G, list(key_locations.keys()))
+    # --- 2. 创建交通路网并计算各关键点之间的最短路径 ---
+    traffic_graph = road_network.create_road_network(key_locations)
+    dist_matrix, path_matrix = road_network.get_path_and_distance_matrices(traffic_graph, list(key_locations.keys()))
+    # 假设平均速度受路况影响，降低20%
     time_df = dist_matrix / (config.HDT_BASE_CONSUMPTION_KWH_PER_KM * 0.8)
 
-    # --- 3. 定义一个固定的、有挑战性的任务集 ---
+    # --- 3. 定义多点配送任务 ---
+    # 每个任务代表一个需要从Depot配送货物的客户
     tasks = {
-        'Task1': {'pickup': 'Task1_Pickup', 'delivery': 'Task1_Delivery', 'weight': 15.0, 'ready_time': 8.0,
-                  'due_time': 15.0},
-        'Task2': {'pickup': 'Task2_Pickup', 'delivery': 'Task2_Delivery', 'weight': 10.0, 'ready_time': 9.0,
-                  'due_time': 18.0},
-        'Task3': {'pickup': 'Task3_Pickup', 'delivery': 'Task3_Delivery', 'weight': 12.0, 'ready_time': 10.0,
-                  'due_time': 20.0}
+        'Task_C1': {'delivery_to': 'Customer1', 'demand': 5.0, 'due_time': 18.0},
+        'Task_C2': {'delivery_to': 'Customer2', 'demand': 4.0, 'due_time': 18.0},
+        'Task_C3': {'delivery_to': 'Customer3', 'demand': 6.0, 'due_time': 18.0},
+        'Task_C4': {'delivery_to': 'Customer4', 'demand': 3.0, 'due_time': 18.0},
+        'Task_C5': {'delivery_to': 'Customer5', 'demand': 7.0, 'due_time': 18.0},
     }
 
-    # --- 4. 定义HDT车辆 ---
-    vehicles = {'HDT1': {'initial_soc': 350.0}, 'HDT2': {'initial_soc': 315.0}, 'HDT3': {'initial_soc': 350.0}}
+    # --- 4. 定义HDT车辆与能源站初始状态 ---
+    vehicles = {'HDT1': {'initial_soc': 350.0}, 'HDT2': {'initial_soc': 350.0}}
+    stations = {'SwapStation1': {'initial_full': 15, 'initial_empty': 5},
+                'SwapStation2': {'initial_full': 15, 'initial_empty': 5}}
 
-    # --- 5. 定义能源站初始状态 ---
-    stations = {
-        'SwapStation1': {'initial_full': 8, 'initial_empty': 2},
-        'SwapStation2': {'initial_full': 6, 'initial_empty': 4}
+    # --- 5. 【核心新增】创建配电网络 ---
+    print("正在创建配电网络拓扑...")
+    power_grid = nx.DiGraph()  # 配电网是有向图
+    # 添加节点 (母线)，一个变电站(Substation)和多个负荷/换电站母线
+    power_buses = ['Bus_Sub', 'Bus_1', 'Bus_2', 'Bus_3', 'Bus_4', 'Bus_5']
+    power_grid.add_nodes_from(power_buses)
+    # 添加线路 (有向边)，构成一个典型的辐射状网络
+    power_lines = [('Bus_Sub', 'Bus_1'), ('Bus_1', 'Bus_2'), ('Bus_1', 'Bus_3'), ('Bus_3', 'Bus_4'), ('Bus_3', 'Bus_5')]
+    power_grid.add_edges_from(power_lines)
+
+    # 将换电站连接到电网的特定母线
+    station_to_bus_map = {
+        'SwapStation1': 'Bus_2',
+        'SwapStation2': 'Bus_4'
     }
 
-    # --- 6. 处理EV充电需求 ---
+    # 计算线路的标幺化阻抗值
+    base_impedance = (config.BASE_VOLTAGE_KV ** 2) / config.BASE_POWER_MVA
+    line_params = {}
+    # 假设每段线路长度为2公里
+    for u, v in power_lines:
+        line_length_km = 2.0
+        r_pu = (line_length_km * config.LINE_RESISTANCE_OHM_PER_KM) / base_impedance
+        x_pu = (line_length_km * config.LINE_REACTANCE_OHM_PER_KM) / base_impedance
+        line_params[(u, v)] = {'r_pu': r_pu, 'x_pu': x_pu}
+    print("配电网络创建完成。")
+
+    # --- 6. 生成时间序列数据 (EV, 电价, 光伏) ---
     time_steps = range(config.TOTAL_TIME_STEPS)
     ev_demand_timestep = {s: pd.Series(0.0, index=time_steps) for s in stations}
     charge_load_filepath = os.path.join(config.RAW_DATA_DIR, config.CHARGE_LOAD_FILENAME)
@@ -78,7 +106,6 @@ def create_final_scenario():
             if arrival_step < config.TOTAL_TIME_STEPS:
                 ev_demand_timestep[station_id][arrival_step] += demand_kwh
 
-    # --- 7. 生成其他时间序列数据 ---
     prices = [0.4 if 23 <= t * config.TIME_STEP_HOURS or t * config.TIME_STEP_HOURS < 7 else (
         1.2 if (7 <= t * config.TIME_STEP_HOURS < 11 or 18 <= t * config.TIME_STEP_HOURS < 21) else 0.8) for t in
               time_steps]
@@ -86,13 +113,17 @@ def create_final_scenario():
     pv_profile = np.sin(np.linspace(0, np.pi, config.TOTAL_TIME_STEPS)) ** 2
     pv_generation = {s: pd.Series(pv_profile * p, index=time_steps) for s, p in config.PV_PEAK_POWER_KW.items()}
 
-    # --- 8. 组装最终数据字典 ---
+    # --- 7. 组装最终数据字典 ---
     model_data = {
-        'graph': G, 'locations': key_locations, 'tasks': tasks, 'vehicles': vehicles,
-        'stations': stations, 'time_steps': list(time_steps),
+        'traffic_graph': traffic_graph, 'locations': key_locations, 'tasks': tasks,
+        'vehicles': vehicles, 'stations': stations,
         'dist_matrix': dist_matrix, 'time_matrix': time_df, 'path_matrix': path_matrix,
-        'electricity_prices': electricity_prices, 'pv_generation': pv_generation,
-        'ev_demand_timestep': ev_demand_timestep
+        'power_grid': power_grid, 'power_buses': power_buses, 'power_lines': power_lines,
+        'line_params': line_params, 'station_to_bus_map': station_to_bus_map,
+        'substation_bus': 'Bus_Sub',
+        'time_steps': list(time_steps), 'electricity_prices': electricity_prices,
+        'pv_generation': pv_generation, 'ev_demand_timestep': ev_demand_timestep
     }
-    print("最终版场景数据创建完成！")
+
+    print("最终耦合版场景数据创建完成！")
     return model_data
