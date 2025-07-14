@@ -17,14 +17,22 @@ def create_final_scenario():
     # --- 1. 定义交通网络与客户点 (CVRP场景) ---
     # 仓库位于城外，客户点和换电站位于城内
     key_locations = {
-        'Depot': (-120, -120),
-        'Customer1': (80, 60),
-        'Customer2': (40, -30),
-        'Customer3': (-50, -80),
-        'Customer4': (20, 90),
-        'Customer5': (-80, 20),
-        'SwapStation1': (10, 80),
-        'SwapStation2': (-20, -60),
+        # 'Depot': (-120, -120),
+        # 'Customer1': (80, 60),
+        # 'Customer2': (40, -30),
+        # 'Customer3': (-50, -80),
+        # 'Customer4': (20, 90),
+        # 'Customer5': (-80, 20),
+        # 'SwapStation1': (10, 80),
+        # 'SwapStation2': (-20, -60),
+        'Depot': (0, 0),
+        'Customer1': (20, 10),
+        'Customer2': (15, -15),
+        'Customer3': (-25, -20),
+        'Customer4': (10, 25),
+        'Customer5': (-30, 5),
+        'SwapStation1': (5, 20),
+        'SwapStation2': (-10, -15),
     }
 
     # --- 2. 创建交通路网并计算各关键点之间的最短路径 ---
@@ -36,11 +44,16 @@ def create_final_scenario():
     # --- 3. 定义多点配送任务 ---
     # 每个任务代表一个需要从Depot配送货物的客户
     tasks = {
-        'Task_C1': {'delivery_to': 'Customer1', 'demand': 5.0, 'due_time': 18.0},
-        'Task_C2': {'delivery_to': 'Customer2', 'demand': 4.0, 'due_time': 18.0},
-        'Task_C3': {'delivery_to': 'Customer3', 'demand': 6.0, 'due_time': 18.0},
-        'Task_C4': {'delivery_to': 'Customer4', 'demand': 3.0, 'due_time': 18.0},
-        'Task_C5': {'delivery_to': 'Customer5', 'demand': 7.0, 'due_time': 18.0},
+        # 'Task_C1': {'delivery_to': 'Customer1', 'demand': 5.0, 'due_time': 18.0},
+        # 'Task_C2': {'delivery_to': 'Customer2', 'demand': 4.0, 'due_time': 18.0},
+        # 'Task_C3': {'delivery_to': 'Customer3', 'demand': 6.0, 'due_time': 18.0},
+        # 'Task_C4': {'delivery_to': 'Customer4', 'demand': 3.0, 'due_time': 18.0},
+        # 'Task_C5': {'delivery_to': 'Customer5', 'demand': 7.0, 'due_time': 18.0},
+        'Task_C1': {'delivery_to': 'Customer1', 'demand': 5.0, 'due_time': 24.0},
+        'Task_C2': {'delivery_to': 'Customer2', 'demand': 4.0, 'due_time': 24.0},
+        'Task_C3': {'delivery_to': 'Customer3', 'demand': 6.0, 'due_time': 24.0},
+        'Task_C4': {'delivery_to': 'Customer4', 'demand': 3.0, 'due_time': 24.0},
+        'Task_C5': {'delivery_to': 'Customer5', 'demand': 7.0, 'due_time': 24.0},
     }
 
     # --- 4. 定义HDT车辆与能源站初始状态 ---
