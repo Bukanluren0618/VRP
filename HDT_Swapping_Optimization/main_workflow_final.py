@@ -22,9 +22,15 @@ def run_final_workflow():
     # 创建并求解模型
     model = model_final.create_final_model(model_data)
 
-    # 使用旧版Pyomo兼容的方式调用Gurobi
-    solver_name = 'gurobi_direct'
-    print(f"\n准备求解器: {solver_name} (强制使用Python直接接口)")
+    # # 使用旧版Pyomo兼容的方式调用Gurobi
+    # solver_name = 'gurobi_direct'
+    # print(f"\n准备求解器: {solver_name} (强制使用Python直接接口)")
+    solver_name = config.SOLVER_NAME
+    if solver_name == 'gurobi':
+        solver_name = 'gurobi_direct'
+        print(f"\n准备求解器: {solver_name} (强制使用Python直接接口)")
+    else:
+        print(f"\n准备求解器: {solver_name}")
     solver = SolverFactory(solver_name)
     solver.options['timelimit'] = config.TIME_LIMIT_SECONDS
 
@@ -46,8 +52,10 @@ def run_final_workflow():
             if value(model.is_task_unassigned[t]) > 0.5:
                 print(f"  - 任务 '{t}' 被放弃，产生了 {config.UNASSIGNED_TASK_PENALTY} 的罚款。")
             else:
-                assigned_vehicle = next((k for k in model.VEHICLES if value(model.task_assigned[t, k]) > 0.5),
-                                        "未知车辆")
+                customer = model_data['tasks'][t]['delivery_to']
+                assigned_vehicle = next(
+                    (k for k in model.VEHICLES if value(model.y[customer, k]) > 0.5),
+                    "未知车辆")
                 delay = value(model.task_delay[t, assigned_vehicle])
                 if delay > 1e-6:
                     print(f"  - 任务 '{t}' 由车辆 '{assigned_vehicle}' 完成，延迟 {delay:.2f} 小时。")
