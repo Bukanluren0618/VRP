@@ -3,9 +3,20 @@
 import os
 import matplotlib.pyplot as plt
 import networkx as nx
+import matplotlib.font_manager as fm
 import pandas as pd
 from pyomo.environ import value
 from src.common import config_final as config
+
+
+
+for fname in ["SimHei", "Microsoft YaHei", "Arial Unicode MS", "Noto Sans CJK SC"]:
+    if any(f.name == fname for f in fm.fontManager.ttflist):
+        plt.rcParams["font.sans-serif"] = [fname]
+        break
+else:
+    plt.rcParams["font.sans-serif"] = ["DejaVu Sans"]
+plt.rcParams["axes.unicode_minus"] = False
 
 
 def plot_road_network_with_routes(model, data, filename="hdt_routing_plan.png"):
