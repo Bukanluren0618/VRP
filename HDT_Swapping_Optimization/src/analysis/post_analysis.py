@@ -126,6 +126,15 @@ def _extract_route(model, vehicle):
         route.append('Depot')
     return route
 
+def print_vehicle_route(model, vehicle):
+    """打印车辆的完整行驶路线。若车辆未离开仓库，则进行提示。"""
+    route = _extract_route(model, vehicle)
+    if len(route) <= 1:
+        print(f"车辆 {vehicle} 未执行任何任务，仅停留在仓库。")
+    else:
+        print(f"车辆 {vehicle} 行驶路线: {' -> '.join(route)}")
+
+
 
 def plot_vehicle_metrics(model, data, vehicle):
     """绘制指定车辆的SOC、载重和耗电率变化曲线"""
@@ -146,6 +155,9 @@ def plot_vehicle_metrics(model, data, vehicle):
         rate.append(rate[-1])
     else:
         rate = [0] * len(route)
+
+        if len(route) <= 1:
+            print(f"车辆 {vehicle} 没有行驶记录，仅停留在仓库。生成平坦曲线图。")
 
     fig, ax1 = plt.subplots(figsize=(8, 4))
     ax1.plot(steps, soc, label='电量', color='tab:blue')
