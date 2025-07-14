@@ -94,3 +94,72 @@ def plot_station_energy_schedule(model, data):
         plt.savefig(os.path.join(config.RESULTS_DIR, filename))
         plt.close()
     print(f"能源调度图已保存到: {config.RESULTS_DIR}/")
+
+
+def print_task_demands(data):
+    """打印每个配送任务的需求量。"""
+    print("\n物流需求一览:")
+    for task, info in data['tasks'].items():
+        loc = info['delivery_to']
+        print(f"  {task}: {loc} - {info['demand']} 吨")
+
+
+def _extract_route(model, vehicle):
+    """根据到达时间对车辆访问的节点排序, 重建路线"""
+    visited = [n for n in model.LOCATIONS if value(model.y[n, vehicle]) > 0.5 or n in model.DEPOT]
+    visited_times = {n: value(model.arrival_time[n, vehicle]) for n in visited}
+    route = [n for n, _ in sorted(visited_times.items(), key=lambda x: x[1])]
+    if route[0] != 'Depot':
+        route.insert(0, 'Depot')
+    if route[-1] != 'Depot':
+        route.append('Depot')
+    return route
+
+
+def plot_vehicle_metrics(model, data, vehicle):
+    """绘制指定车辆的SOC、载重和耗电率变化曲线"""
+    route = _extract_route(model, vehicle)
+    steps = list(range(len(route)))
+    soc = [value(model.soc_arrival[n, vehicle]) for n in route]
+    load = [value(model.weight_on_arrival[n, vehicle]) for n in route]
+    rate = []
+    for idx in range(len(route) - 1):
+        w = load[idx]
+        for t, info in data['tasks'].items():
+            if info['delivery_to'] == route[idx]:
+                if value(model.y[info['delivery_to'], vehicle]) > 0.5:
+                    w -= info['demand']
+        r = config.HDT_BASE_CONSUMPTION_KWH_PER_KM + w * config.HDT_WEIGHT_CONSUMPTION_KWH_PER_KM_TON
+        rate.append(r)
+    if rate:
+        rate.append(rate[-1])
+    else:
+        rate = [0] * len(route)
+
+    fig, ax1 = plt.subplots(figsize=(8, 4))
+    ax1.plot(steps, soc, label='电量', color='tab:blue')
+    ax1.set_ylabel('电量 (kWh)', color='tab:blue')
+    ax1.tick_params(axis='y', labelcolor='tab:blue')
+
+    ax2 = ax1.twinx()
+    ax2.step(steps, load, where='post', label='载重', color='tab:orange')
+    ax2.set_ylabel('载重 (t)', color='tab:orange')
+    ax2.tick_params(axis='y', labelcolor='tab:orange')
+
+    ax3 = ax1.twinx()
+    ax3.spines['right'].set_position(('outward', 60))
+    ax3.plot(steps, rate, label='耗电率', color='tab:green')
+    ax3.set_ylabel('耗电率 (kWh/km)', color='tab:green')
+    ax3.tick_params(axis='y', labelcolor='tab:green')
+
+    lines = ax1.get_lines() + ax2.get_lines() + ax3.get_lines()
+    labels = [l.get_label() for l in lines]
+    ax1.legend(lines, labels, loc='upper right')
+    ax1.set_xlabel('步骤')
+    ax1.set_title(f'{vehicle} 电量/载重/耗电率')
+
+    plt.tight_layout()
+    filename = f"metrics_{vehicle}.png"
+    plt.savefig(os.path.join(config.RESULTS_DIR, filename))
+    plt.close()
+    print(f"车辆 {vehicle} 指标图保存到: {os.path.join(config.RESULTS_DIR, filename)}")
