@@ -31,7 +31,7 @@ def create_final_scenario():
     traffic_graph = road_network.create_road_network(key_locations)
     dist_matrix, path_matrix = road_network.get_path_and_distance_matrices(traffic_graph, list(key_locations.keys()))
     # 假设平均速度受路况影响，降低20%
-    time_df = dist_matrix / (config.HDT_BASE_CONSUMPTION_KWH_PER_KM * 0.8)
+    time_df = dist_matrix / (config.HDT_AVERAGE_SPEED_KMPH * 0.8)
 
     # --- 3. 定义多点配送任务 ---
     # 每个任务代表一个需要从Depot配送货物的客户
@@ -44,7 +44,10 @@ def create_final_scenario():
     }
 
     # --- 4. 定义HDT车辆与能源站初始状态 ---
-    vehicles = {'HDT1': {'initial_soc': 350.0}, 'HDT2': {'initial_soc': 350.0}}
+    vehicles = {
+        'HDT1': {'initial_soc': config.HDT_BATTERY_CAPACITY_KWH},
+        'HDT2': {'initial_soc': config.HDT_BATTERY_CAPACITY_KWH}
+    }
     stations = {'SwapStation1': {'initial_full': 15, 'initial_empty': 5},
                 'SwapStation2': {'initial_full': 15, 'initial_empty': 5}}
 
