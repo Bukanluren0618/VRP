@@ -7,8 +7,8 @@ RESULTS_DIR = os.path.join(PROJECT_ROOT, "results")
 RAW_DATA_DIR = os.path.join(PROJECT_ROOT, "data", "raw")
 
 # --- 原始数据文件名 ---
-CHARGE_LOAD_FILENAME = "充电负荷报表-海宜路1、2号5月.xlsx - 充电负荷报表.csv"
-BATTERY_SOC_FILENAME = "电池SOC数据.xlsx - 换电充电记录.csv"
+CHARGE_LOAD_FILENAME = "充电负荷报表-海宜路1、2号5月.csv"
+BATTERY_SOC_FILENAME = "电池SOC数据.csv"
 
 # --- 时间离散化 ---
 TIME_HORIZON_HOURS = 24

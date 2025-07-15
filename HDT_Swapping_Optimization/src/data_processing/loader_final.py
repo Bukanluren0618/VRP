@@ -17,22 +17,22 @@ def create_final_scenario():
     # --- 1. 定义交通网络与客户点 (CVRP场景) ---
     # 仓库位于城外，客户点和换电站位于城内
     key_locations = {
-        # 'Depot': (-120, -120),
-        # 'Customer1': (80, 60),
-        # 'Customer2': (40, -30),
-        # 'Customer3': (-50, -80),
-        # 'Customer4': (20, 90),
-        # 'Customer5': (-80, 20),
-        # 'SwapStation1': (10, 80),
-        # 'SwapStation2': (-20, -60),
-        'Depot': (0, 0),
-        'Customer1': (20, 10),
-        'Customer2': (15, -15),
-        'Customer3': (-25, -20),
-        'Customer4': (10, 25),
-        'Customer5': (-30, 5),
-        'SwapStation1': (5, 20),
-        'SwapStation2': (-10, -15),
+        'Depot': (-120, -120),
+        'Customer1': (80, 60),
+        'Customer2': (40, -30),
+        'Customer3': (-50, -80),
+        'Customer4': (20, 90),
+        'Customer5': (-80, 20),
+        'SwapStation1': (10, 80),
+        'SwapStation2': (-20, -60),
+        # 'Depot': (0, 0),
+        # 'Customer1': (20, 10),
+        # 'Customer2': (15, -15),
+        # 'Customer3': (-25, -20),
+        # 'Customer4': (10, 25),
+        # 'Customer5': (-30, 5),
+        # 'SwapStation1': (5, 20),
+        # 'SwapStation2': (-10, -15),
     }
 
     # --- 2. 创建交通路网并计算各关键点之间的最短路径 ---
@@ -100,7 +100,10 @@ def create_final_scenario():
         charge_df = pd.read_csv(charge_load_filepath, encoding='gbk')
         if '开始时间' not in charge_df.columns or '电量' not in charge_df.columns:
             raise ValueError("CSV文件中缺少'开始时间'或'电量'列。")
-        charge_df['开始时间'] = pd.to_datetime(charge_df['开始时间'])
+        # charge_df['开始时间'] = pd.to_datetime(charge_df['开始时间'])
+        charge_df['开始时间'] = pd.to_datetime(
+            charge_df['开始时间'], format='%H:%M', errors='coerce')
+        charge_df.dropna(subset=['开始时间'], inplace=True)
         charge_df['hour'] = charge_df['开始时间'].dt.hour
         hourly_load = charge_df.groupby('hour')['电量'].sum()
         total_real_load = hourly_load.sum()
