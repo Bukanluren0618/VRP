@@ -106,6 +106,30 @@ def plot_station_energy_schedule(model, data):
         plt.close()
     print(f"能源调度图已保存到: {config.RESULTS_DIR}/")
 
+def print_assignment_summary(model, data):
+    """打印任务分配和车辆边变量等信息, 便于调试模型结果"""
+    print("\n[决策变量检查]")
+    for t in model.TASKS:
+        cust = data['tasks'][t]['delivery_to']
+        assigned = [k for k in model.VEHICLES if value(model.y[cust, k]) > 0.5]
+        unassigned = value(model.is_task_unassigned[t]) > 0.5
+        if assigned:
+            print(f"任务 {t} 分配给车辆: {', '.join(assigned)}; is_task_unassigned={unassigned}")
+        else:
+            print(f"任务 {t} 未分配; is_task_unassigned={unassigned}")
+
+    for k in model.VEHICLES:
+        arcs = []
+        for i in model.LOCATIONS:
+            for j in model.LOCATIONS:
+                x_var = model.x[i, j, k]
+                if x_var.value is not None and x_var.value > 0.5:
+                    arcs.append((i, j))
+        if arcs:
+            print(f"车辆 {k} 行驶边: {arcs}")
+        else:
+            print(f"车辆 {k} 无行驶边")
+
 
 def print_task_demands(data):
     """打印每个配送任务的需求量。"""

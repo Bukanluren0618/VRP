@@ -70,6 +70,7 @@ def run_final_workflow():
         post_analysis.plot_road_network_with_routes(model, model_data)
         post_analysis.plot_station_energy_schedule(model, model_data)
         post_analysis.print_task_demands(model_data)
+        post_analysis.print_assignment_summary(model, model_data)
         for v in model.VEHICLES:
             post_analysis.plot_vehicle_metrics(model, model_data, v)
     else:
