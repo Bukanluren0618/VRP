@@ -138,6 +138,21 @@ def print_task_demands(data):
         loc = info['delivery_to']
         print(f"  {task}: {loc} - {info['demand']} 吨")
 
+def check_task_feasibility(data):
+    """简单评估每个任务在单次往返情况下的时间和能耗需求。"""
+    print("\n[任务可达性检查]")
+    for task, info in data['tasks'].items():
+        cust = info['delivery_to']
+        dist = data['dist_matrix'].loc['Depot', cust] + data['dist_matrix'].loc[cust, 'Depot']
+        travel_time = data['time_matrix'].loc['Depot', cust] + data['time_matrix'].loc[cust, 'Depot']
+        demand = info['demand']
+        rate = (config.HDT_BASE_CONSUMPTION_KWH_PER_KM +
+                (config.HDT_EMPTY_WEIGHT_TON + demand) * config.HDT_WEIGHT_CONSUMPTION_KWH_PER_KM_TON)
+        energy = dist * rate
+        feasible = (energy <= config.HDT_BATTERY_CAPACITY_KWH and travel_time <= info['due_time'])
+        flag = "可行" if feasible else "不可行"
+        print(f"{task}: 往返距离{dist:.1f}km, 需时{travel_time:.1f}h, 耗电{energy:.1f}kWh -> {flag}")
+
 
 def _extract_route(model, vehicle):
     """根据到达时间对车辆访问的节点排序, 重建路线"""

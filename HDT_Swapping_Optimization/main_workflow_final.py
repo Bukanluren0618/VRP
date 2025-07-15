@@ -6,6 +6,7 @@ from src.data_processing import loader_final
 from src.modeling import model_final
 from src.common import config_final as config
 import pandas as pd
+from src.analysis import post_analysis
 
 
 def run_final_workflow():
@@ -19,6 +20,7 @@ def run_final_workflow():
     # 创建场景数据
     model_data = loader_final.create_final_scenario()
 
+    post_analysis.check_task_feasibility(model_data)
     # 创建并求解模型
     model = model_final.create_final_model(model_data)
 
