@@ -34,7 +34,7 @@ def run_final_workflow():
     else:
         print(f"\n准备求解器: {solver_name}")
     solver = SolverFactory(solver_name)
-    solver.options['timelimit'] = config.TIME_LIMIT_SECONDS
+    # solver.options['timelimit'] = config.TIME_LIMIT_SECONDS
 
     print("开始求解...")
     results = solver.solve(model, tee=True)
