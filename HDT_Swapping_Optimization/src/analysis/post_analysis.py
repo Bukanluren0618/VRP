@@ -111,6 +111,9 @@ def print_assignment_summary(model, data):
     print("\n[决策变量检查]")
     for t in model.TASKS:
         cust = data['tasks'][t]['delivery_to']
+        if hasattr(model, 'is_task_unassigned') and value(model.is_task_unassigned[t]) > 0.5:
+            print(f"任务 {t} 被放弃")
+            continue
         assigned = [k for k in model.VEHICLES if value(model.y[cust, k]) > 0.5]
         unassigned = value(model.is_task_unassigned[t]) > 0.5
         if assigned:

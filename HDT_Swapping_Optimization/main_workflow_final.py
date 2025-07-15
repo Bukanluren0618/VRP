@@ -52,22 +52,22 @@ def run_final_workflow():
         print("\n--- [诊断] 任务完成情况 ---")
         for t in model.TASKS:
             customer = model_data['tasks'][t]['delivery_to']
-            assigned_vehicle = next(
-                (k for k in model.VEHICLES if value(model.y[customer, k]) > 0.5),
-                None)
-            if assigned_vehicle is None and value(model.is_task_unassigned[t]) > 0.5:
+            if value(model.is_task_unassigned[t]) > 0.5:
                 print(f"  - 任务 '{t}' 被放弃，产生了 {config.UNASSIGNED_TASK_PENALTY} 的罚款。")
-            elif assigned_vehicle is None:
-                print(f"  - 任务 '{t}' 无车辆完成，模型可能不可行。")
             else:
-                delay = value(model.task_delay[t, assigned_vehicle])
-                if delay > 1e-6:
-                    print(f"  - 任务 '{t}' 由车辆 '{assigned_vehicle}' 完成，延迟 {delay:.2f} 小时。")
-                else:
-                    print(f"  - 任务 '{t}' 由车辆 '{assigned_vehicle}' 成功按时完成。")
+                assigned_vehicle = next(
+                    (k for k in model.VEHICLES if value(model.y[customer, k]) > 0.5),
+                    None)
+                if assigned_vehicle is None:
+                    print(f"  - 任务 '{t}' 无车辆完成，模型可能不可行。")
+                    else:
+                    delay = value(model.task_delay[t, assigned_vehicle])
+                    if delay > 1e-6:
+                        print(f"  - 任务 '{t}' 由车辆 '{assigned_vehicle}' 完成，延迟 {delay:.2f} 小时。")
+                    else:
+                        print(f"  - 任务 '{t}' 由车辆 '{assigned_vehicle}' 成功按时完成。")
 
         # 详细的结果分析与可视化
-        from src.analysis import post_analysis
         print("\n正在生成详细的可视化结果...")
         post_analysis.plot_road_network_with_routes(model, model_data)
         post_analysis.plot_station_energy_schedule(model, model_data)

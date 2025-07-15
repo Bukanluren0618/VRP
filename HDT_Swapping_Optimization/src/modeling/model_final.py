@@ -28,7 +28,12 @@ def create_final_model(data):
     model.x = Var(model.LOCATIONS, model.LOCATIONS, model.VEHICLES, within=Binary)
     model.y = Var(model.LOCATIONS, model.VEHICLES, within=Binary)
     model.is_task_unassigned = Var(model.TASKS, within=Binary)
-    model.arrival_time = Var(model.LOCATIONS, model.VEHICLES, within=NonNegativeReals)
+
+    model.arrival_time = Var(
+        model.LOCATIONS, model.VEHICLES,
+        within=NonNegativeReals,
+        bounds=(0, config.TIME_HORIZON_HOURS * 2)
+    )
     model.soc_arrival = Var(model.LOCATIONS, model.VEHICLES, within=NonNegativeReals)
     model.weight_on_arrival = Var(model.LOCATIONS, model.VEHICLES, within=NonNegativeReals)
     model.swap_decision = Var(model.STATIONS, model.VEHICLES, within=Binary)
@@ -50,7 +55,7 @@ def create_final_model(data):
         grid_cost = sum(m.P_grid[s, t] * config.TIME_STEP_HOURS * data['electricity_prices'][t] for s, t in m.P_grid)
         delay_penalty = config.DELAY_PENALTY_PER_HOUR * sum(m.task_delay.values())
         ev_penalty = config.EV_UNSERVED_PENALTY_PER_KWH * sum(m.ev_unserved.values())
-        unassigned_penalty = config.UNASSIGNED_TASK_PENALTY * sum(m.is_task_unassigned.values())
+        unassigned_penalty = config.UNASSIGNED_TASK_PENALTY * sum(m.is_task_unassigned[t] for t in m.TASKS)
         return travel_cost + swap_cost + grid_cost + delay_penalty + ev_penalty + unassigned_penalty
 
     model.objective = Objective(rule=objective_rule, sense=minimize)
@@ -67,6 +72,7 @@ def create_final_model(data):
     # -- 任务与客户服务约束 --
     for t, t_info in data['tasks'].items():
         customer = t_info['delivery_to']
+        # 每个任务要么由某辆车完成，要么被放弃
         model.constrs.add(sum(model.y[customer, k] for k in model.VEHICLES) + model.is_task_unassigned[t] == 1)
     for c in model.CUSTOMERS:
         model.constrs.add(sum(model.y[c, k] for k in model.VEHICLES) <= 1)
@@ -74,9 +80,8 @@ def create_final_model(data):
     # -- 路径与流平衡约束 --
     for k in model.VEHICLES:
         depot = next(iter(model.DEPOT))
-        model.constrs.add(sum(model.x[depot, j, k] for j in model.NODES) <= 1)
-        model.constrs.add(
-            sum(model.x[i, depot, k] for i in model.NODES) == sum(model.x[depot, j, k] for j in model.NODES))
+        model.constrs.add(sum(model.x[depot, j, k] for j in model.NODES) == 1)
+        model.constrs.add(sum(model.x[i, depot, k] for i in model.NODES) == 1)
         for n in model.LOCATIONS:
             if n == depot:
                 model.constrs.add(model.y[n, k] == sum(model.x[n, j, k] for j in model.NODES))
