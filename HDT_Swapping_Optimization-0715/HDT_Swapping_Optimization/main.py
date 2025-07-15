@@ -38,8 +38,15 @@ def main():
     print(f"\n正在创建求解器: {config.SOLVER_NAME}")
     try:
         solver = SolverFactory(config.SOLVER_NAME)
-        solver.options['max_iter'] = 2000 # 增加最大迭代次数
-        solver.options['tol'] = 1e-6 # 设置收敛容差
+        # solver.options['max_iter'] = 2000 # 增加最大迭代次数
+        # solver.options['tol'] = 1e-6 # 设置收敛容差
+        solver.options['max_iter'] = 2000  # 增加最大迭代次数
+        solver.options['tol'] = 1e-6  # 设置收敛容差
+        if config.SOLVER_NAME.lower() == 'gurobi':
+            solver.options['NonConvex'] = 2
+            if hasattr(config, 'TIME_LIMIT_SECONDS'):
+                solver.options['TimeLimit'] = config.TIME_LIMIT_SECONDS
+
     except Exception as e:
         print(f"\n[错误] 创建求解器 '{config.SOLVER_NAME}' 失败。请确保它已正确安装并配置。")
         print(f"详细信息: {e}")

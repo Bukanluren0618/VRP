@@ -25,6 +25,9 @@ def debug_runner():
         model_data = loader_final.create_scenario_from_files()
         if model_data is None: return
         solver = SolverFactory(config.SOLVER_NAME)
+        if config.SOLVER_NAME.lower() == 'gurobi':
+            solver.options['NonConvex'] = 2
+            if hasattr(config, 'TIME_LIMIT_SECONDS'):
     except Exception as e:
         print(f"[致命错误] 无法初始化调试环境: {e}")
         return

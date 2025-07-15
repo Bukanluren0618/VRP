@@ -92,6 +92,13 @@ def main():
             return
 
         solver = SolverFactory(config.SOLVER_NAME)
+        # Gurobi needs the NonConvex parameter when the model has
+        # quadratic expressions that are not positive semi-definite.
+        if config.SOLVER_NAME.lower() == 'gurobi':
+            solver.options['NonConvex'] = 2
+            # Respect optional time limit if defined in the config
+            if hasattr(config, 'TIME_LIMIT_SECONDS'):
+                solver.options['TimeLimit'] = config.TIME_LIMIT_SECONDS
     except Exception as e:
         print(f"\n[致命错误] 环境初始化失败: {e}")
         import traceback
