@@ -55,6 +55,13 @@ print("[MAIN] Script start")
 
 
 @dataclass
+class ServiceTask:
+    node: int
+    weight: float
+    due: int
+
+
+@dataclass
 class Truck:
     id: int
     capacity_kwh: float
@@ -64,6 +71,7 @@ class Truck:
     original_services: list[int]
     cargo_weight: float
     max_payload: float
+    tasks: list[ServiceTask] = field(default_factory=list)
 
     swap_events: list[int] = field(default_factory=list)
     deliver_events: list[int] = field(default_factory=list)
@@ -222,6 +230,155 @@ def generate_connected_graph(N: int, radius: float):
         G.edges[u, v]['distance'] = math.hypot(p[0]-q[0], p[1]-q[1])
     return G, pos
 
+def plan_route_greedy(G: nx.Graph, start: int, services: list[int]) -> list[int]:
+    """按能耗启发式规划服务节点顺序"""
+    if not services:
+        return [start, start]
+
+    remaining = set(services)
+    route = [start]
+    curr = start
+    max_payload = MAX_PAYLOAD_KG
+    drop_amt = max_payload / len(services)
+    cargo = max_payload
+
+    while remaining:
+        def cost(n: int) -> float:
+            d_curr = nx.shortest_path_length(G, curr, n, weight="distance")
+            d_home = nx.shortest_path_length(G, n, start, weight="distance")
+            energy_to_n = d_curr * (1 + cargo / max_payload)
+            energy_back = d_home * (1 + (cargo - drop_amt) / max_payload)
+            return energy_to_n + energy_back
+
+        next_node = min(remaining, key=cost)
+        route.append(next_node)
+        curr = next_node
+        remaining.remove(next_node)
+        cargo -= drop_amt
+
+    route.append(start)
+    return route
+
+
+def plan_route_nearest(G: nx.Graph, start: int, tasks: list[ServiceTask]) -> list[int]:
+    """根据距离和载重的贪心策略规划任务顺序"""
+    if not tasks:
+        return [start, start]
+
+    remaining = tasks.copy()
+    curr = start
+    cargo = sum(t.weight for t in tasks)
+    max_payload = MAX_PAYLOAD_KG
+    route = [start]
+
+    while remaining:
+        def cost(task: ServiceTask) -> float:
+            dist = nx.shortest_path_length(G, curr, task.node, weight="distance")
+            return dist * (1 + cargo / max_payload)
+
+        next_task = min(remaining, key=cost)
+        route.append(next_task.node)
+        curr = next_task.node
+        cargo -= next_task.weight
+        remaining.remove(next_task)
+
+    route.append(start)
+    return route
+
+
+def plan_route_with_tasks(G: nx.Graph, start: int, tasks: list[ServiceTask]) -> list[int]:
+    """根据任务权重和时间窗规划路线"""
+    if not tasks:
+        return [start, start]
+
+    remaining = tasks.copy()
+    curr = start
+    cargo = sum(t.weight for t in tasks)
+    max_payload = MAX_PAYLOAD_KG
+    time = 0.0
+    route = [start]
+
+    while remaining:
+        def score(task: ServiceTask) -> float:
+            d_curr = nx.shortest_path_length(G, curr, task.node, weight="distance")
+            d_home = nx.shortest_path_length(G, task.node, start, weight="distance")
+            energy_to = d_curr * (1 + cargo / max_payload)
+            energy_back = d_home * (1 + (cargo - task.weight) / max_payload)
+            arrival = time + d_curr
+            penalty = max(0.0, arrival - task.due) * 1000
+            return energy_to + energy_back + penalty
+
+        next_task = min(remaining, key=score)
+        travel = nx.shortest_path_length(G, curr, next_task.node, weight="distance")
+        time += travel
+        cargo -= next_task.weight
+        curr = next_task.node
+        route.append(curr)
+        remaining.remove(next_task)
+
+    route.append(start)
+    return route
+
+
+def plan_route_nearest(G: nx.Graph, start: int, tasks: list[ServiceTask]) -> list[int]:
+    """根据距离和载重的贪心策略规划任务顺序"""
+    if not tasks:
+        return [start, start]
+
+    remaining = tasks.copy()
+    curr = start
+    cargo = sum(t.weight for t in tasks)
+    max_payload = MAX_PAYLOAD_KG
+    route = [start]
+
+    while remaining:
+        def cost(task: ServiceTask) -> float:
+            dist = nx.shortest_path_length(G, curr, task.node, weight="distance")
+            return dist * (1 + cargo / max_payload)
+
+        next_task = min(remaining, key=cost)
+        route.append(next_task.node)
+        curr = next_task.node
+        cargo -= next_task.weight
+        remaining.remove(next_task)
+
+    route.append(start)
+    return route
+
+
+def plan_route_with_tasks(G: nx.Graph, start: int, tasks: list[ServiceTask]) -> list[int]:
+    """根据任务权重和时间窗规划路线"""
+    if not tasks:
+        return [start, start]
+
+    remaining = tasks.copy()
+    curr = start
+    cargo = sum(t.weight for t in tasks)
+    max_payload = MAX_PAYLOAD_KG
+    time = 0.0
+    route = [start]
+
+    while remaining:
+        def score(task: ServiceTask) -> float:
+            d_curr = nx.shortest_path_length(G, curr, task.node, weight="distance")
+            d_home = nx.shortest_path_length(G, task.node, start, weight="distance")
+            energy_to = d_curr * (1 + cargo / max_payload)
+            energy_back = d_home * (1 + (cargo - task.weight) / max_payload)
+            arrival = time + d_curr
+            penalty = max(0.0, arrival - task.due) * 1000
+            return energy_to + energy_back + penalty
+
+        next_task = min(remaining, key=score)
+        travel = nx.shortest_path_length(G, curr, next_task.node, weight="distance")
+        time += travel
+        cargo -= next_task.weight
+        curr = next_task.node
+        route.append(curr)
+        remaining.remove(next_task)
+
+    route.append(start)
+    return route
+
 
 
 def insert_stations(route: list[int],
@@ -297,7 +454,11 @@ def simulate():
         start = random.choice(depots)
         k = random.randint(SERVICE_MIN, min(SERVICE_MAX, len(candidates)))
         services = random.sample([n for n in candidates if n != start], k)
-        route = [start] + services + [start]
+        tasks = [ServiceTask(node=s,
+                             weight=random.uniform(200, 800),
+                             due=random.randint(1, STEPS))
+                 for s in services]
+        route = plan_route_nearest(G, start, tasks)
         # 初始化满载
         init_weight = MAX_PAYLOAD_KG
         trucks.append(Truck(
@@ -308,7 +469,8 @@ def simulate():
             route=route,
             original_services=services,  # 这里传入原始服务点列表
             cargo_weight=init_weight,
-            max_payload=MAX_PAYLOAD_KG
+            max_payload=MAX_PAYLOAD_KG,
+            tasks = tasks
         ))
 
     print(f"[SIM] {len(trucks)} trucks initialized")
@@ -353,7 +515,6 @@ def solve_with_gurobi(G, depots, stations, service_nodes, trucks):
     # 电量状态变量 e[k,i]
     C = TRUCK_CAPACITY_KWH
     r = TRUCK_CONSUMPTION_RATE
-    e = m.addVars(K, V, lb=0, ub=C, name='e')
 
     # 禁止非站点换电
     for k in K:
@@ -475,30 +636,36 @@ def visualize(G, pos, depots, stations, trucks, record_swaps, ev_arrivals):
 #     plt.tight_layout()
 #     plt.show()
 
-def plot_single_truck(G, pos, depots, station_nodes, trucks, truck_id: int):
-    """
-    绘制卡车轨迹，并在每个节点处添加节点编号文字标签。
-    """
-    # 先画网络和位置
-    fig, ax = plt.subplots(figsize=(8,6))
-    nx.draw(G, pos=pos, ax=ax, node_size=10, edge_color='lightgray', alpha=0.3)
+def plot_single_truck(G: nx.Graph,
+                      pos: dict[int, tuple[float, float]],
+                      depots: list[int],
+                      station_nodes: list[int],
+                      trucks: list[Truck],
+                      truck_id: int) -> None:
+    """绘制指定卡车的行驶轨迹"""
+    fig, ax = plt.subplots(figsize=(8, 6))
+    nx.draw(G, pos=pos, ax=ax, node_size=10,
+            edge_color='lightgray', alpha=0.5)
     nx.draw_networkx_nodes(G, pos, nodelist=depots,
                            node_color='gold', node_shape='*',
-                           node_size=150, edgecolors='black', label='Depot')
+                           node_size=150, edgecolors='black',
+                           label='Depot')
     nx.draw_networkx_nodes(G, pos, nodelist=station_nodes,
                            node_color='orange', node_shape='s',
                            node_size=80, label='Station')
-    # 取出指定卡车
     truck = next(t for t in trucks if t.id == truck_id)
     xs, ys = zip(*(pos[n] for n in truck.route))
-    ax.plot(xs, ys, '-o', linewidth=2, markersize=5, label=f'Truck {truck_id}')
-    # 在每个节点上添加标签
-    for node in truck.route:
-        x, y = pos[node]
-        ax.text(x, y, str(node), fontsize=8, ha='right', va='bottom')
-    ax.set_title(f'Trajectory of Truck {truck_id} with Node Labels')
-    ax.legend(); plt.tight_layout(); plt.show()
-    
+    ax.plot(xs, ys, '-o', linewidth=2, markersize=5,
+            label=f'Truck {truck_id}')
+    ax.set_title(f'Trajectory of Truck {truck_id}')
+    ax.legend()
+    plt.tight_layout()
+    plt.show()
+
+
+
+
+
 def print_route_log(truck: Truck):
     for entry in truck.route_log:
         print(entry)
@@ -509,14 +676,76 @@ def print_events(truck: Truck):
 
 
 
+def print_service_tasks(trucks: list[Truck]):
+    for t in trucks:
+        info = ", ".join(
+            f"{tsk.node}(w={tsk.weight:.0f}, due={tsk.due})" for tsk in t.tasks
+        )
+        print(f"Truck {t.id} tasks: {info}")
+
+
+def aggregate_demands(trucks: list[Truck]) -> dict[int, float]:
+    """统计每个节点的总卸货需求量"""
+    demand: dict[int, float] = {}
+    for t in trucks:
+        for task in t.tasks:
+            demand[task.node] = demand.get(task.node, 0.0) + task.weight
+    return demand
+
+
+def plot_demand_heatmap(G: nx.Graph,
+                        pos: dict[int, tuple[float, float]],
+                        depots: list[int],
+                        stations: list[int],
+                        demand: dict[int, float]) -> None:
+    """根据卸货需求绘制城市物流热力图"""
+    fig, ax = plt.subplots(figsize=(10, 8))
+    nx.draw_networkx_edges(G, pos, ax=ax, edge_color='lightgray', alpha=0.4)
+    nx.draw_networkx_nodes(G, pos, nodelist=depots,
+                           node_color='gold', node_shape='*',
+                           node_size=150, edgecolors='black',
+                           label='Depot')
+    nx.draw_networkx_nodes(G, pos, nodelist=stations,
+                           node_color='orange', node_shape='s',
+                           node_size=80, label='Station')
+
+    nodes = list(demand.keys())
+    weights = np.array([demand[n] for n in nodes])
+    if len(weights) > 0:
+        norm = plt.Normalize(vmin=weights.min(), vmax=weights.max())
+        cmap = plt.cm.Reds
+        colors = cmap(norm(weights))
+        sizes = 50 + 150 * (weights - weights.min()) / (weights.max() - weights.min() + 1e-6)
+        ax.scatter([pos[n][0] for n in nodes],
+                   [pos[n][1] for n in nodes],
+                   s=sizes, c=colors, cmap=cmap,
+                   edgecolors='black', label='Demand')
+        sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+        sm.set_array([])
+        cbar = plt.colorbar(sm, ax=ax, shrink=0.7)
+        cbar.set_label('Demand Weight')
+
+    ax.set_title('City Logistics Demand Heatmap')
+    ax.legend(loc='upper right', fontsize=8)
+    plt.tight_layout()
+    plt.show()
+
+
+
+
+
+
 if __name__ == '__main__':
     G, pos, depots, station_nodes, stations, trucks, record_swaps, ev_arrivals = simulate()
+    print_service_tasks(trucks)
+    demand = aggregate_demands(trucks)
+    plot_demand_heatmap(G, pos, depots, station_nodes, demand)
     service_nodes = [n for t in trucks for n in t.route if n not in depots and n not in station_nodes]
     vrp_routes = solve_with_gurobi(G, depots, stations, service_nodes, trucks)
     visualize(G, pos, depots, stations, trucks, record_swaps, ev_arrivals)
 
     # **先重置并跑一遍第15辆车，填充 history 和 route_log**
-    truck15 = next(t for t in trucks if t.id == 15)
+    truck15 = next(t for t in trucks if t.id == 14)
     truck15.reset()
     truck15.drive(G, stations)
 
@@ -528,6 +757,7 @@ if __name__ == '__main__':
     print_events(truck15)
 
     # 最后再画轨迹和三坐标图
-    plot_single_truck(15)
+    plot_single_truck(G, pos, depots, station_nodes, trucks, 14)
     plot_metrics(truck15)
+
 
