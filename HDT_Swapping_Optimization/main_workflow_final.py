@@ -49,13 +49,19 @@ def run_final_workflow():
 
         print("\n--- [诊断] 任务完成情况 ---")
         for t in model.TASKS:
-            if value(model.is_task_unassigned[t]) > 0.5:
-                print(f"  - 任务 '{t}' 被放弃，产生了 {config.UNASSIGNED_TASK_PENALTY} 的罚款。")
+            # if value(model.is_task_unassigned[t]) > 0.5:
+            #     print(f"  - 任务 '{t}' 被放弃，产生了 {config.UNASSIGNED_TASK_PENALTY} 的罚款。")
+            customer = model_data['tasks'][t]['delivery_to']
+            assigned_vehicle = next(
+                (k for k in model.VEHICLES if value(model.y[customer, k]) > 0.5),
+                None)
+            if assigned_vehicle is None:
+                print(f"  - 任务 '{t}' 无车辆完成，模型可能不可行。")
             else:
-                customer = model_data['tasks'][t]['delivery_to']
-                assigned_vehicle = next(
-                    (k for k in model.VEHICLES if value(model.y[customer, k]) > 0.5),
-                    "未知车辆")
+                # customer = model_data['tasks'][t]['delivery_to']
+                # assigned_vehicle = next(
+                #     (k for k in model.VEHICLES if value(model.y[customer, k]) > 0.5),
+                #     "未知车辆")
                 delay = value(model.task_delay[t, assigned_vehicle])
                 if delay > 1e-6:
                     print(f"  - 任务 '{t}' 由车辆 '{assigned_vehicle}' 完成，延迟 {delay:.2f} 小时。")
