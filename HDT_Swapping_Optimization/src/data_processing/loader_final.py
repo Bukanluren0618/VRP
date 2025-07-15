@@ -41,7 +41,7 @@ def create_final_scenario():
         traffic_graph, list(key_locations.keys())
     )
     # 将整张路网距离缩小 10 倍，以保证行驶里程更合理
-    dist_matrix = dist_matrix / 10.0
+    dist_matrix = dist_matrix / 5.0
     # 假设平均速度受路况影响，降低20%
     time_df = dist_matrix / (config.HDT_AVERAGE_SPEED_KMPH * 0.8)
 

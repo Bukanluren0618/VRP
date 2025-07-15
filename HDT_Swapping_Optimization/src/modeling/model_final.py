@@ -37,6 +37,7 @@ def create_final_model(data):
     model.soc_arrival = Var(model.LOCATIONS, model.VEHICLES, within=NonNegativeReals)
     model.weight_on_arrival = Var(model.LOCATIONS, model.VEHICLES, within=NonNegativeReals)
     model.swap_decision = Var(model.STATIONS, model.VEHICLES, within=Binary)
+    model.soc_departure = Var(model.LOCATIONS, model.VEHICLES, within=NonNegativeReals)
     model.task_delay = Var(model.TASKS, model.VEHICLES, within=NonNegativeReals)
     model.P_grid = Var(model.STATIONS, model.TIME, within=NonNegativeReals)
     model.P_charge_batt = Var(model.STATIONS, model.TIME, within=NonNegativeReals)
