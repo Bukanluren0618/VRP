@@ -80,8 +80,12 @@ def create_final_model(data):
     # -- 路径与流平衡约束 --
     for k in model.VEHICLES:
         depot = next(iter(model.DEPOT))
-        model.constrs.add(sum(model.x[depot, j, k] for j in model.NODES) == 1)
-        model.constrs.add(sum(model.x[i, depot, k] for i in model.NODES) == 1)
+        # 每辆车至多离开仓库一次并最终返回，用<=保持模型可行
+        model.constrs.add(sum(model.x[depot, j, k] for j in model.NODES) <= 1)
+        model.constrs.add(
+            sum(model.x[i, depot, k] for i in model.NODES)
+            == sum(model.x[depot, j, k] for j in model.NODES)
+        )
         for n in model.LOCATIONS:
             if n == depot:
                 model.constrs.add(model.y[n, k] == sum(model.x[n, j, k] for j in model.NODES))
@@ -121,9 +125,12 @@ def create_final_model(data):
                     service_time = config.LOADING_UNLOADING_TIME_HOURS if i in model.CUSTOMERS else 0
                     if i in model.STATIONS: service_time += model.swap_decision[i, k] * config.SWAP_DURATION_HOURS
                     departure_time_i = model.arrival_time[i, k] + service_time
+
+                    travel_time = data['time_matrix'].loc[i, j]
                     model.constrs.add(
-                        model.arrival_time[j, k] >= departure_time_i + data['time_matrix'].loc[i, j] - config.BIG_M * (
-                                    1 - model.x[i, j, k]))
+                        model.arrival_time[j, k] >= departure_time_i + travel_time - config.BIG_M * (
+                                1 - model.x[i, j, k]))
+
 
                     # 电量传播
                     soc_departure_i = model.soc_arrival[i, k] + (model.swap_decision[i, k] * (
@@ -131,8 +138,9 @@ def create_final_model(data):
                             i, k]) if i in model.STATIONS else 0)
                     energy_consumed = data['dist_matrix'].loc[i, j] * (
                                 config.HDT_BASE_CONSUMPTION_KWH_PER_KM + weight_depart_i * config.HDT_WEIGHT_CONSUMPTION_KWH_PER_KM_TON)
-                    model.constrs.add(model.soc_arrival[j, k] <= soc_departure_i - energy_consumed + config.BIG_M * (
-                                1 - model.x[i, j, k]))
+                    model.constrs.add(
+                        model.soc_arrival[j, k] <= soc_departure_i - energy_consumed + config.BIG_M * (1 - model.x[i, j, k]))
+
 
         # 时间窗与最低电量约束
         for t, t_info in data['tasks'].items():
