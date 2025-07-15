@@ -81,7 +81,7 @@ def create_final_model(data):
     for k in model.VEHICLES:
         depot = next(iter(model.DEPOT))
         # 每辆车至多离开仓库一次并最终返回，用<=保持模型可行
-        model.constrs.add(sum(model.x[depot, j, k] for j in model.NODES) <= 1)
+        model.constrs.add(sum(model.x[depot, j, k] for j in model.NODES) == 1)
         model.constrs.add(
             sum(model.x[i, depot, k] for i in model.NODES)
             == sum(model.x[depot, j, k] for j in model.NODES)

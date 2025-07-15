@@ -37,7 +37,11 @@ def create_final_scenario():
 
     # --- 2. 创建交通路网并计算各关键点之间的最短路径 ---
     traffic_graph = road_network.create_road_network(key_locations)
-    dist_matrix, path_matrix = road_network.get_path_and_distance_matrices(traffic_graph, list(key_locations.keys()))
+    dist_matrix, path_matrix = road_network.get_path_and_distance_matrices(
+        traffic_graph, list(key_locations.keys())
+    )
+    # 将整张路网距离缩小 10 倍，以保证行驶里程更合理
+    dist_matrix = dist_matrix / 10.0
     # 假设平均速度受路况影响，降低20%
     time_df = dist_matrix / (config.HDT_AVERAGE_SPEED_KMPH * 0.8)
 
