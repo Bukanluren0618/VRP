@@ -123,11 +123,21 @@ def create_scenario_from_manual_data():
         charge_load_df['日期'] = pd.to_datetime(charge_load_df['日期'])
         sample_day_load = charge_load_df[charge_load_df['日期'] == charge_load_df['日期'].max()].copy()
 
-        # 尝试多种时间格式以增加鲁棒性
-        try:
-            sample_day_load['hour'] = pd.to_datetime(sample_day_load['开始时间'], format='%H:%M:%S').dt.hour
-        except ValueError:
-            sample_day_load['hour'] = pd.to_datetime(sample_day_load['开始时间']).dt.hour
+        # 尝试多种时间格式以增加鲁棒性，避免日期解析警告
+        time_parsed = pd.to_datetime(
+            sample_day_load['开始时间'],
+            format='%H:%M:%S',
+            errors='coerce'
+        )
+        unparsed = time_parsed.isna()
+        if unparsed.any():
+            # 再尝试不含秒数的格式
+            time_parsed.loc[unparsed] = pd.to_datetime(
+                sample_day_load.loc[unparsed, '开始时间'],
+                format='%H:%M',
+                errors='coerce'
+            )
+        sample_day_load['hour'] = time_parsed.dt.hour.fillna(0).astype(int)
 
         for s_name_raw, group in sample_day_load.groupby('电站名称'):
             s_id = None
