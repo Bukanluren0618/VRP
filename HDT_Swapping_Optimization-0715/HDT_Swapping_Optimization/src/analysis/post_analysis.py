@@ -17,9 +17,17 @@ def safe_value(var):
     【关键修复】: 创建一个安全的取值函数，与旧版Pyomo兼容。
     如果变量未被求解器赋值(其 .value 为 None)，则返回0。
     """
-    if var.value is None:
-        return 0
-    return value(var)
+    # 既要兼容 Pyomo 变量/表达式, 也要兼容普通的数值类型
+    if hasattr(var, "value"):
+        # Pyomo Var 或 Param
+        if var.value is None:
+            return 0
+        return value(var)
+    else:
+        # 直接是数值(如 float/int)
+        if var is None:
+            return 0
+        return float(var)
 
 
 def plot_road_network_with_routes(model, data, filename="hdt_routing_plan.png"):
