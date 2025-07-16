@@ -10,6 +10,7 @@ from common import config_final as config
 from data_processing import loader_final
 from modeling import model_final
 from analysis import post_analysis
+from analysis import pre_checks
 
 def main():
     """
@@ -25,6 +26,9 @@ def main():
     except Exception as e:
         print(f"\n[错误] 数据加载失败: {e}")
         return
+
+    # 数据加载后，先检查每个任务的单独可达性
+    pre_checks.check_task_feasibility(model_data)
 
     # 2. 构建优化模型
     try:

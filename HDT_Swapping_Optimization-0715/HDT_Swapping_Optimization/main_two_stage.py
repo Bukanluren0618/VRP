@@ -15,6 +15,7 @@ from src.data_processing import loader_final
 from src.modeling import stage1_tactical
 from src.modeling import model_final as stage2_model_builder
 from src.analysis import post_analysis
+from src.analysis import pre_checks
 
 
 def run_stage1(data, solver):
@@ -90,6 +91,9 @@ def main():
         if model_data is None:
             print("\n流程终止：数据加载失败。")
             return
+
+        # 在求解前先进行任务可达性检查，打印往返距离、时间和耗电量
+        pre_checks.check_task_feasibility(model_data)
 
         solver = SolverFactory(config.SOLVER_NAME)
         # Gurobi needs the NonConvex parameter when the model has
