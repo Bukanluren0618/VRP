@@ -7,6 +7,17 @@ import pandas as pd
 from pyomo.environ import value
 from src.common import config_final as config
 
+
+"""Convenience imports for analysis utilities."""
+
+from . import post_analysis
+from .pre_checks import check_task_feasibility
+
+# Re-export commonly used helpers for simplicity
+from .post_analysis import *  # noqa: F401,F403
+
+__all__ = post_analysis.__all__ + ["check_task_feasibility"]
+
 # 设置支持中文的字体
 plt.rcParams['font.sans-serif'] = ['SimHei']
 plt.rcParams['axes.unicode_minus'] = False
