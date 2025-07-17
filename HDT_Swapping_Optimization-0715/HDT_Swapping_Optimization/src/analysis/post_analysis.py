@@ -122,3 +122,87 @@ def plot_station_energy_schedule(model, data):
         plt.savefig(os.path.join(config.RESULTS_DIR, filename))
         plt.close()
     print(f"能源调度图已保存到: {config.RESULTS_DIR}/")
+
+    def print_task_assignments(model, data):
+        """打印每个任务由哪辆车执行"""
+        print("\n========== 任务分配结果 ==========")
+        for t in model.TASKS:
+            customer = data['tasks'][t]['delivery_to']
+            assigned = None
+            for k in model.VEHICLES:
+                if safe_value(model.y[customer, k]) > 0.5:
+                    assigned = k
+                    break
+            print(f"任务 {t} -> 车辆 {assigned if assigned else '未分配'}")
+        print("===================================\n")
+
+    def print_vehicle_swap_nodes(model):
+        """打印每辆车在哪些站点换电"""
+        print("\n========== 换电站点选择 ==========")
+        for k in model.VEHICLES:
+            swaps = [s for s in model.STATIONS if safe_value(model.swap_decision[s, k]) > 0.5]
+            if swaps:
+                print(f"车辆 {k} 换电站点: {swaps}")
+            else:
+                print(f"车辆 {k} 未进行换电")
+        print("===================================\n")
+
+    def plot_hdt_metrics(model, data):
+        """为每辆车绘制电量/载重/耗电率三坐标图"""
+        for k in model.VEHICLES:
+            visited = [(safe_value(model.arrival_time[n, k]), n) for n in model.LOCATIONS
+                       if n in model.DEPOT or safe_value(model.y[n, k]) > 0.5]
+            visited.sort()
+            if not visited:
+                continue
+
+            soc = []
+            load = []
+            rate = []
+            steps = []
+            prev = None
+            for step, (t, n) in enumerate(visited):
+                soc.append(safe_value(model.soc_arrival[n, k]))
+                load.append(safe_value(model.weight_on_arrival[n, k]))
+                if prev is None:
+                    rate.append(0)
+                else:
+                    i = prev
+                    j = n
+                    dist = data['dist_matrix'].loc[i, j]
+                    demand_i = sum(info['demand'] for info in data['tasks'].values()
+                                   if info['delivery_to'] == i)
+                    depart_w = safe_value(model.weight_on_arrival[i, k]) - demand_i * safe_value(model.y[i, k])
+                    energy = dist * (config.HDT_BASE_CONSUMPTION_KWH_PER_KM +
+                                     depart_w * config.HDT_WEIGHT_CONSUMPTION_KWH_PER_KM_TON)
+                    rate.append(energy / dist if dist > 0 else 0)
+                steps.append(step)
+                prev = n
+
+            fig, ax1 = plt.subplots(figsize=(10, 5))
+            ax1.plot(steps, soc, label='电量(kWh)', color='tab:blue')
+            ax1.set_ylabel('电量(kWh)', color='tab:blue')
+            ax1.tick_params(axis='y', labelcolor='tab:blue')
+
+            ax2 = ax1.twinx()
+            ax2.step(steps, load, where='post', label='载重(t)', color='tab:orange')
+            ax2.set_ylabel('载重(t)', color='tab:orange')
+            ax2.tick_params(axis='y', labelcolor='tab:orange')
+
+            ax3 = ax1.twinx()
+            ax3.spines['right'].set_position(('outward', 60))
+            ax3.plot(steps, rate, label='耗电率(kWh/km)', color='tab:green')
+            ax3.set_ylabel('耗电率(kWh/km)', color='tab:green')
+            ax3.tick_params(axis='y', labelcolor='tab:green')
+
+            lines = ax1.get_lines() + ax2.get_lines() + ax3.get_lines()
+            labels = [l.get_label() for l in lines]
+            ax1.legend(lines, labels, loc='upper right')
+            ax1.set_xlabel('步骤')
+            ax1.set_title(f'Vehicle {k} 电量/载重/耗电率')
+
+            plt.tight_layout()
+            fname = f'hdt_metrics_{k}.png'
+            plt.savefig(os.path.join(config.RESULTS_DIR, fname))
+            plt.close()
+            print(f"三坐标图已保存: {os.path.join(config.RESULTS_DIR, fname)}")

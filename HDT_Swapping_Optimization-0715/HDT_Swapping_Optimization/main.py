@@ -72,8 +72,11 @@ def main():
         # 调用后分析脚本来绘制图表
         print("\n正在生成结果图表...")
         try:
+            post_analysis.print_task_assignments(model, model_data)
+            post_analysis.print_vehicle_swap_nodes(model)
             post_analysis.plot_road_network_with_routes(model, model_data)
             post_analysis.plot_station_energy_schedule(model, model_data)
+            post_analysis.plot_hdt_metrics(model, model_data)
             print("所有图表已成功生成并保存到 'results' 文件夹。")
         except Exception as e:
             print(f"\n[警告] 后分析绘图失败: {e}")
