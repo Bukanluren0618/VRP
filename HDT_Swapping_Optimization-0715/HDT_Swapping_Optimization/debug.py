@@ -3,6 +3,7 @@
 import sys
 import os
 from pyomo.environ import SolverFactory
+from . import post_analysis
 import random
 
 PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
