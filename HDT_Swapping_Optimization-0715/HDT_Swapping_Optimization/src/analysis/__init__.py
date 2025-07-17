@@ -15,11 +15,14 @@ _POST_FUNCS = [
     "print_vehicle_routes",
     "plot_hdt_metrics",
 ]
-__all__ = _POST_FUNCS + ["check_task_feasibility"]
+__all__ = ["post_analysis"] + _POST_FUNCS + ["check_task_feasibility"]
+
 
 
 def __getattr__(name):
-    """Lazily import helpers from :mod:`post_analysis` to avoid circular imports."""
+    """Lazily import helpers or the module itself to avoid circular imports."""
+    if name == "post_analysis":
+        return import_module(".post_analysis", __name__)
     if name in _POST_FUNCS:
         module = import_module(".post_analysis", __name__)
         return getattr(module, name)
