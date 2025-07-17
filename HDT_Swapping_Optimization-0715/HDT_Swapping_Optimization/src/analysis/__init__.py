@@ -1,28 +1,12 @@
-from . import post_analysis  # noqa: F401
-
-from . import pre_checks  # noqa: F401
-
-from . import post_analysis
-print_task_assignments = post_analysis.print_task_assignments
+from __future__ import annotations
+import importlib
+from types import ModuleType
 
 
-# Re-export frequently used helpers for easier access
-check_task_feasibility = pre_checks.check_task_feasibility
-safe_value = post_analysis.safe_value
-plot_road_network_with_routes = post_analysis.plot_road_network_with_routes
-plot_station_energy_schedule = post_analysis.plot_station_energy_schedule
-print_vehicle_swap_nodes = post_analysis.print_vehicle_swap_nodes
-print_vehicle_routes = post_analysis.print_vehicle_routes
+_post_mod: ModuleType | None = None
+_pre_mod: ModuleType | None = None
 
-# Keep __all__ in sync with the helpers we re-export so that
-# ``from src.analysis import *`` works as expected and IDEs can
-# discover the available utilities.
-plot_hdt_metrics = post_analysis.plot_hdt_metrics
-
-__all__ = [
-    "post_analysis",
-    "pre_checks",
-    "check_task_feasibility",
+_POST_FUNCS = {
     "safe_value",
     "plot_road_network_with_routes",
     "plot_station_energy_schedule",
@@ -30,4 +14,42 @@ __all__ = [
     "print_vehicle_swap_nodes",
     "print_vehicle_routes",
     "plot_hdt_metrics",
+}
+
+_PRE_FUNCS = {
+    "check_task_feasibility",
+}
+
+__all__ = [
+    "post_analysis",
+    "pre_checks",
+    *_PRE_FUNCS,
+    *_POST_FUNCS,
 ]
+
+def _load_post() -> ModuleType:
+    global _post_mod
+    if _post_mod is None:
+        _post_mod = importlib.import_module(".post_analysis", __name__)
+    return _post_mod
+
+
+def _load_pre() -> ModuleType:
+    global _pre_mod
+    if _pre_mod is None:
+        _pre_mod = importlib.import_module(".pre_checks", __name__)
+    return _pre_mod
+
+
+def __getattr__(name: str):
+    if name == "post_analysis":
+        return _load_post()
+    if name == "pre_checks":
+        return _load_pre()
+    if name in _POST_FUNCS:
+        return getattr(_load_post(), name)
+    if name in _PRE_FUNCS:
+        return getattr(_load_pre(), name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
