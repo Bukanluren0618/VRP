@@ -65,6 +65,7 @@ def create_scenario_from_manual_data():
     key_locations_list = list(locations_data.keys())
     dist_matrix, path_matrix = road_network.get_path_and_distance_matrices(traffic_graph, key_locations_list)
     time_df = dist_matrix / 50.0  # 假设平均时速50km/h
+    dist_matrix = dist_matrix / 50.0
 
     # --- 2. 解析任务、车辆、站点和电池信息 ---
     print("正在解析任务、车辆和站点数据...")
