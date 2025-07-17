@@ -4,18 +4,9 @@ This module re-exports the most frequently used helpers from
 The explicit imports avoid circular initialization errors when ``post_analysis``
 itself imports this package.
 """
-
+from importlib import import_module
 from .pre_checks import check_task_feasibility
-from .post_analysis import (
-    safe_value,
-    plot_road_network_with_routes,
-    plot_station_energy_schedule,
-    print_task_assignments,
-    print_vehicle_swap_nodes,
-    print_vehicle_routes,
-    plot_hdt_metrics,
-)
-__all__ = [
+_POST_FUNCS = [
     "safe_value",
     "plot_road_network_with_routes",
     "plot_station_energy_schedule",
@@ -23,5 +14,13 @@ __all__ = [
     "print_vehicle_swap_nodes",
     "print_vehicle_routes",
     "plot_hdt_metrics",
-    "check_task_feasibility",
 ]
+__all__ = _POST_FUNCS + ["check_task_feasibility"]
+
+
+def __getattr__(name):
+    """Lazily import helpers from :mod:`post_analysis` to avoid circular imports."""
+    if name in _POST_FUNCS:
+        module = import_module(".post_analysis", __name__)
+        return getattr(module, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name}")
