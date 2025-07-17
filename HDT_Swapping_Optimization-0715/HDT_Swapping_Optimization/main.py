@@ -74,6 +74,7 @@ def main():
         try:
             post_analysis.print_task_assignments(model, model_data)
             post_analysis.print_vehicle_swap_nodes(model)
+            post_analysis.print_vehicle_routes(model, model_data)
             post_analysis.plot_road_network_with_routes(model, model_data)
             post_analysis.plot_station_energy_schedule(model, model_data)
             post_analysis.plot_hdt_metrics(model, model_data)

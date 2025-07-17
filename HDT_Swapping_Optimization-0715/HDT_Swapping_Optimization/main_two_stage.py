@@ -128,6 +128,8 @@ def main():
         print(f"最终总成本: {value(final_model.objective):.2f}")
         try:
             post_analysis.plot_road_network_with_routes(final_model, model_data)
+            post_analysis.print_vehicle_swap_nodes(final_model)
+            post_analysis.print_vehicle_routes(final_model, model_data)
             post_analysis.plot_station_energy_schedule(final_model, model_data)
             print("所有图表已成功生成并保存到 'results' 文件夹。")
         except Exception as e:

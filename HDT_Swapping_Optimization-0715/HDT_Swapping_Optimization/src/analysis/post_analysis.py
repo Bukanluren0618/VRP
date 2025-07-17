@@ -66,8 +66,19 @@ def plot_road_network_with_routes(model, data, filename="hdt_routing_plan.png"):
                     path_nodes = data['path_matrix'].loc[i, j]
                     if path_nodes and len(path_nodes) > 1:
                         path_edges = list(zip(path_nodes[:-1], path_nodes[1:]))
-                        nx.draw_networkx_edges(G, pos, edgelist=path_edges, edge_color=color, width=2.5, style='dashed',
-                                               alpha=0.8, label=f'Vehicle {k}')
+                        nx.draw_networkx_edges(
+                            G,
+                            pos,
+                            edgelist=path_edges,
+                            edge_color=color,
+                            width=2.5,
+                            style='dashed',
+                            alpha=0.8,
+                            arrows=True,
+                            arrowstyle='->',
+                            arrowsize=15,
+                            label=f'Vehicle {k}'
+                        )
 
     plt.title("HDT Fleet Routing Plan", fontsize=20)
     plt.xlabel("X Coordinate")
@@ -146,6 +157,28 @@ def plot_station_energy_schedule(model, data):
             else:
                 print(f"车辆 {k} 未进行换电")
         print("===================================\n")
+
+        def print_vehicle_routes(model, data):
+            """按顺序打印每辆车的行驶路线(节点序列)"""
+            print("\n========== 车辆行驶路线 ==========")
+            for k in model.VEHICLES:
+                depot = data['vehicles'][k]['depot_id']
+                route = [depot]
+                current = depot
+                visited = set([depot])
+                while True:
+                    next_nodes = [j for j in model.LOCATIONS if
+                                  current != j and safe_value(model.x[current, j, k]) > 0.5]
+                    if not next_nodes:
+                        break
+                    next_node = next_nodes[0]
+                    route.append(next_node)
+                    visited.add(next_node)
+                    current = next_node
+                    if current == depot:
+                        break
+                print(f"车辆 {k}: {' -> '.join(route)}")
+            print("===================================\n")
 
     def plot_hdt_metrics(model, data):
         """为每辆车绘制电量/载重/耗电率三坐标图"""
