@@ -3,6 +3,7 @@
 import sys
 import os
 from pyomo.environ import SolverFactory, value
+from pyomo.opt import SolverStatus, TerminationCondition
 import pandas as pd
 import math
 
@@ -27,8 +28,9 @@ def run_stage1(data, solver):
     print("=" * 50)
     model_s1 = stage1_tactical.create_tactical_model(data)
     results_s1 = solver.solve(model_s1, tee=False)
-    if (results_s1.solver.status == "ok") and (
-        results_s1.solver.termination_condition in ["optimal", "locallyOptimal"]
+    if (results_s1.solver.status == SolverStatus.ok) and (
+        results_s1.solver.termination_condition
+        in [TerminationCondition.optimal, TerminationCondition.locallyOptimal]
     ):
         print("[S1-SUCCESS] 战术规划求解成功！")
         allocated_trucks = 0
@@ -71,8 +73,9 @@ def run_stage2(data, solver, vehicle_ids, task_ids):
         data, vehicle_ids, task_ids
     )
     results_s2 = solver.solve(model_s2, tee=True)
-    if (results_s2.solver.status == "ok") and (
-        results_s2.solver.termination_condition in ["optimal", "locallyOptimal"]
+    if (results_s2.solver.status == SolverStatus.ok) and (
+        results_s2.solver.termination_condition
+        in [TerminationCondition.optimal, TerminationCondition.locallyOptimal]
     ):
         print("[S2-SUCCESS] 运营执行模型求解成功！")
         return model_s2
@@ -114,7 +117,11 @@ def main():
     print("------------------------------")
 
     # 2. 运行第一阶段 (代码不变)
-    vehicle_ids, task_ids = run_stage1(model_data, solver)
+    result = run_stage1(model_data, solver)
+    if (result is None) or any(r is None for r in result):
+        print("\n流程终止，因为第一阶段求解失败或未返回结果。")
+        return
+    vehicle_ids, task_ids = result
 
     # 3. 运行第二阶段 (代码不变)
     final_model = None
