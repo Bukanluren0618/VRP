@@ -5,7 +5,7 @@ The explicit imports avoid circular initialization errors when ``post_analysis``
 itself imports this package.
 """
 from importlib import import_module
-from .pre_checks import check_task_feasibility
+
 _POST_FUNCS = [
     "safe_value",
     "plot_road_network_with_routes",
@@ -15,7 +15,10 @@ _POST_FUNCS = [
     "print_vehicle_routes",
     "plot_hdt_metrics",
 ]
-__all__ = ["post_analysis"] + _POST_FUNCS + ["check_task_feasibility"]
+
+_PRE_FUNCS = ["check_task_feasibility"]
+
+__all__ = ["post_analysis"] + _POST_FUNCS + _PRE_FUNCS
 
 
 
@@ -25,5 +28,8 @@ def __getattr__(name):
         return import_module(".post_analysis", __name__)
     if name in _POST_FUNCS:
         module = import_module(".post_analysis", __name__)
+        return getattr(module, name)
+    if name in _PRE_FUNCS:
+        module = import_module(".pre_checks", __name__)
         return getattr(module, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name}")
