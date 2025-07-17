@@ -125,9 +125,14 @@ def create_scenario_from_manual_data():
 
         # 尝试多种时间格式以增加鲁棒性
         try:
-            sample_day_load['hour'] = pd.to_datetime(sample_day_load['开始时间'], format='%H:%M:%S').dt.hour
+            sample_day_load['hour'] = pd.to_datetime(
+                sample_day_load['开始时间'], format='%H:%M:%S'
+            ).dt.hour
         except ValueError:
-            sample_day_load['hour'] = pd.to_datetime(sample_day_load['开始时间']).dt.hour
+            sample_day_load['hour'] = pd.to_datetime(
+                sample_day_load['开始时间'], format='mixed'
+            ).dt.hour
+
 
         for s_name_raw, group in sample_day_load.groupby('电站名称'):
             s_id = None

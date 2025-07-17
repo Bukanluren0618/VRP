@@ -9,12 +9,14 @@ import math
 # 将src目录添加到Python路径
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), 'src')))
 
+
 from src.common import config_final as config
 # 【修改】导入我们重写后的 loader_final
 from src.data_processing import loader_final
 from src.modeling import stage1_tactical
 from src.modeling import model_final as stage2_model_builder
 from src.analysis import post_analysis
+from src.analysis.post_analysis import check_task_feasibility
 
 
 def run_stage1(data, solver):
@@ -25,8 +27,9 @@ def run_stage1(data, solver):
     print("=" * 50)
     model_s1 = stage1_tactical.create_tactical_model(data)
     results_s1 = solver.solve(model_s1, tee=False)
-    if (results_s1.solver.status == 'ok') and (
-            results_s1.solver.termination_condition in ['optimal', 'locallyOptimal']):
+    if (results_s1.solver.status == "ok") and (
+        results_s1.solver.termination_condition in ["optimal", "locallyOptimal"]
+    ):
         print("[S1-SUCCESS] 战术规划求解成功！")
         allocated_trucks = 0
         for d in model_s1.DEPOTS:
@@ -41,10 +44,13 @@ def run_stage1(data, solver):
                 unserved_tasks.append(t)
         print(f"  -> 决策: 服务 {len(served_tasks)} 个任务: {served_tasks}")
         if unserved_tasks:
-            print(f"  -> 警告: {len(unserved_tasks)} 个任务因运力不足被放弃: {unserved_tasks}")
-        available_vehicles = list(data['vehicles'].keys())
-        vehicle_ids_to_plan = available_vehicles[:min(allocated_trucks, len(available_vehicles))]
-        return vehicle_ids_to_plan, served_tasks
+            print(
+                f"  -> 警告: {len(unserved_tasks)} 个任务因运力不足被放弃: {unserved_tasks}"
+            )
+        available_vehicles = list(data["vehicles"].keys())
+        vehicle_ids_to_plan = available_vehicles[
+                              : min(allocated_trucks, len(available_vehicles))
+                              ]
     else:
         print("[S1-FAILURE] 战术规划求解失败。")
         print(f"  - 求解器状态: {results_s1.solver.status}")
@@ -61,10 +67,13 @@ def run_stage2(data, solver, vehicle_ids, task_ids):
     if not vehicle_ids or not task_ids:
         print("[S2-SKIP] 没有车辆或任务被分配，跳过运营执行阶段。")
         return None
-    model_s2 = stage2_model_builder.create_operational_model(data, vehicle_ids, task_ids)
+    model_s2 = stage2_model_builder.create_operational_model(
+        data, vehicle_ids, task_ids
+    )
     results_s2 = solver.solve(model_s2, tee=True)
-    if (results_s2.solver.status == 'ok') and (
-            results_s2.solver.termination_condition in ['optimal', 'locallyOptimal']):
+    if (results_s2.solver.status == "ok") and (
+        results_s2.solver.termination_condition in ["optimal", "locallyOptimal"]
+    ):
         print("[S2-SUCCESS] 运营执行模型求解成功！")
         return model_s2
     else:
@@ -95,8 +104,14 @@ def main():
     except Exception as e:
         print(f"\n[致命错误] 环境初始化失败: {e}")
         import traceback
+
         traceback.print_exc()
         return
+
+    # 对任务可达性进行预检查
+    print("\n------ Task Feasibility ------")
+    check_task_feasibility(model_data)
+    print("------------------------------")
 
     # 2. 运行第一阶段 (代码不变)
     vehicle_ids, task_ids = run_stage1(model_data, solver)
@@ -122,6 +137,7 @@ def main():
         except Exception as e:
             print(f"\n[警告] 后分析绘图失败: {e}")
             import traceback
+
             traceback.print_exc()
     else:
         print("\n流程结束，但未产生可供分析的最终解。")

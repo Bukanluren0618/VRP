@@ -61,6 +61,6 @@ PV_PEAK_POWER_KW = {'SwapStation1': 500, 'SwapStation2': 400, '换电站ID1': 30
 
 
 # --- 求解器与模型 ---
-SOLVER_NAME = 'gurobi'
+SOLVER_NAME = 'ipopt'
 TIME_LIMIT_SECONDS = 600
 BIG_M = 10000
