@@ -6,8 +6,11 @@ from pyomo.environ import SolverFactory, value
 import pandas as pd
 import math
 
-# 将src目录添加到Python路径
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), 'src')))
+# 将项目根目录添加到Python路径，使得可以通过 `import src` 访问
+PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 
 from src.common import config_final as config
 # 【修改】导入我们重写后的 loader_final

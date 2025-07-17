@@ -3,8 +3,10 @@ import sys
 import os
 from pyomo.environ import SolverFactory, value
 
-# 将src目录添加到Python路径，以便可以导入模块
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), 'src')))
+# 将 src 目录添加到 Python 路径，保持对旧版脚本的兼容
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "src"))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 from common import config_final as config
 from data_processing import loader_final
