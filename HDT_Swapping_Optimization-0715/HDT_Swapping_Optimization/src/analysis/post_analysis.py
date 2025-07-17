@@ -16,7 +16,16 @@ from .pre_checks import check_task_feasibility
 # Re-export commonly used helpers for simplicity
 from .post_analysis import *  # noqa: F401,F403
 
-__all__ = post_analysis.__all__ + ["check_task_feasibility"]
+__all__ = [
+    "safe_value",
+    "plot_road_network_with_routes",
+    "plot_station_energy_schedule",
+    "print_task_assignments",
+    "print_vehicle_swap_nodes",
+    "print_vehicle_routes",
+    "plot_hdt_metrics",
+]
+
 
 # 设置支持中文的字体
 plt.rcParams['font.sans-serif'] = ['SimHei']
