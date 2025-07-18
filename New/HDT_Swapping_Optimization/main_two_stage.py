@@ -28,8 +28,15 @@ def run_stage1(data, solver):
     print("=" * 50)
     model_s1 = stage1_tactical.create_tactical_model(data)
     results_s1 = solver.solve(model_s1, tee=False)
-    if (results_s1.solver.status == SolverStatus.ok) and (
-        results_s1.solver.termination_condition
+
+    print(
+        f"  -> 求解状态: {results_s1.solver.status}, 终止条件: {results_s1.solver.termination_condition}"
+    )
+
+    if (
+        results_s1.solver.status
+        in [SolverStatus.ok, SolverStatus.warning]
+        and results_s1.solver.termination_condition
         in [TerminationCondition.optimal, TerminationCondition.locallyOptimal]
     ):
         print("[S1-SUCCESS] 战术规划求解成功！")
@@ -57,7 +64,7 @@ def run_stage1(data, solver):
         print("[S1-FAILURE] 战术规划求解失败。")
         print(f"  - 求解器状态: {results_s1.solver.status}")
         print(f"  - 终止条件: {results_s1.solver.termination_condition}")
-        return None, None
+        return None
 
 
 def run_stage2(data, solver, vehicle_ids, task_ids):
@@ -118,7 +125,7 @@ def main():
 
     # 2. 运行第一阶段 (代码不变)
     result = run_stage1(model_data, solver)
-    if (result is None) or any(r is None for r in result):
+    if result is None:
         print("\n流程终止，因为第一阶段求解失败或未返回结果。")
         return
     vehicle_ids, task_ids = result
