@@ -169,9 +169,15 @@ def main():
         if model_data is None: return
 
         solver = SolverFactory(config.SOLVER_NAME)
-        solver.options['MIPGap'] = 0.05
-        solver.options['MIPFocus'] = 1
-        solver.options['Heuristics'] = 0.8  # 稍微调高启发式，帮助快速找到解
+        solver.options.clear()  # 避免残留的求解器参数影响
+        if config.SOLVER_NAME.lower() == 'gurobi':
+            solver.options['MIPGap'] = 0.05
+            solver.options['MIPFocus'] = 1
+            solver.options['Heuristics'] = 0.8  # 稍微调高启发式，帮助快速找到解
+        elif config.SOLVER_NAME.lower() == 'ipopt':
+            solver.options['tol'] = 1e-6
+            solver.options['max_iter'] = 3000
+            solver.options['max_cpu_time'] = config.TIME_LIMIT_SECONDS
     except Exception as e:
         print(f"\n[致命错误] 环境初始化失败: {e}")
         return
