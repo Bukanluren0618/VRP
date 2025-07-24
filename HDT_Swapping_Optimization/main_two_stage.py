@@ -102,8 +102,14 @@ def run_greedy_insertion_stage2(data, solver, vehicle_ids, task_ids):
                                                                                        tasks_for_this_run)
 
                 # 对于这种小问题，求解时间可以很短
-                solver.options['TimeLimit'] = 20
+                solver.options.clear()  # 重置求解器参数
+                if config.SOLVER_NAME.lower() == 'gurobi':
+                    solver.options['TimeLimit'] = 20
+                elif config.SOLVER_NAME.lower() == 'ipopt':
+                    solver.options['max_cpu_time'] = 20
                 results = solver.solve(model_single_insertion, tee=False)
+                if results.solver.termination_condition not in ['optimal', 'locallyOptimal']:
+                    print(f"    -> 候选任务 {candidate_task} 求解器未找到解: status={results.solver.status}, tc={results.solver.termination_condition}")
 
                 # 检查这个插入是否可行
                 try:
