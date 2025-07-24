@@ -36,6 +36,19 @@ def run_stage1(data, solver):
         if unserved_tasks_count > 0:
             print(f"  -> 警告: {unserved_tasks_count} 个任务因运力或时间限制被放弃。")
 
+            tasks_by_depot = {d: [] for d in model_s1.DEPOTS}
+            for t_id in model_s1.TASKS:
+                depot = data['tasks'][t_id]['depot']
+                tasks_by_depot[depot].append(t_id)
+            print("  -> 各发车点任务统计与需求预估:")
+            for d in model_s1.DEPOTS:
+                total_tasks = len(tasks_by_depot[d])
+                total_hours = sum(data['tasks'][t]['estimated_duration'] for t in tasks_by_depot[d])
+                req_count = math.ceil(total_tasks / config.AVG_TASKS_PER_TRUCK)
+                req_time = math.ceil(total_hours / config.MAX_WORKING_HOURS_PER_TRUCK)
+                need = max(req_count, req_time)
+                print(f"     - {d}: {total_tasks} 个任务, 预计 {total_hours:.1f} 小时, 至少需要 {need} 辆车")
+
         available_vehicles = list(data['vehicles'].keys())
         vehicle_ids_to_plan = available_vehicles[:min(allocated_trucks, len(available_vehicles))]
         return vehicle_ids_to_plan, served_tasks
