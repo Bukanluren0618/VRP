@@ -308,7 +308,13 @@ def solve_detailed_vrp(G, trucks, stations, constraint_skips=None):
                 final_routes[k] = route
             return final_routes, model
         elif model.status == GRB.INFEASIBLE:
-            print("!!! [阶段二] 模型无解 (Infeasible) !!!")
+            print("!!! [阶段二] 模型无解 (Infeasible)，执行IIS分析... !!!")
+            model.computeIIS()
+            model.write("stage2_model.ilp")
+            for c in model.getConstrs():
+                if c.IISConstr:
+                    print(f"  -> IIS约束: {c.ConstrName}")
+            print("IIS written to stage2_model.ilp")
             return None, model
         else:
             print(f"--- [阶段二] 求解结束，但未找到最优解。模型状态码: {model.status}")

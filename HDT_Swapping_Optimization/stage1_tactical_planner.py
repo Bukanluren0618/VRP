@@ -102,5 +102,14 @@ def solve_fleet_allocation(depot_tasks: dict[int, int]) -> dict[int, int] | None
         print(f"预计无法服务的任务数: {total_unserved:.0f}")
         return allocation
     else:
-        print("--- [阶段一] 求解失败！模型状态码: {model.status}")
+        if model.status == GRB.INFEASIBLE:
+            print("--- [阶段一] 模型无解，执行IIS分析... ---")
+            model.computeIIS()
+            model.write("stage1_model.ilp")
+            for c in model.getConstrs():
+                if c.IISConstr:
+                    print(f"  -> IIS约束: {c.ConstrName}")
+            print("IIS written to stage1_model.ilp")
+        else:
+            print(f"--- [阶段一] 求解失败！模型状态码: {model.status}")
         return None
