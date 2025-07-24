@@ -1,0 +1,463 @@
+C:\Users\DELL\.conda\envs\pytorch38-gpu\python.exe "F:\1\Coupling optimization\HDT_Swapping_Optimization\main_two_stage.py" 
+======================================================
+=== HDT两步走策略优化模型 (城市配送场景) ===
+======================================================
+==============================
+开始创建全新的【城市配送】场景...
+正在创建随机城市路网...
+场景设施点分配完毕: 5仓库, 10换电站, 80客户。
+正在计算所有关键节点对之间的最短路径和距离矩阵...
+路径和距离矩阵计算完成。
+路网距离已除以 100.0 以模拟城市环境。
+已生成 30 辆卡车和 169 个配送任务。
+==============================
+全新的【城市配送】场景数据创建完成！
+
+==================================================
+=== RUNNING STAGE 1: TACTICAL ALLOCATION ===
+==================================================
+开始构建【第一阶段：战术规划】模型...
+【第一阶段】模型构建完成。
+[S1-SUCCESS] 战术规划求解成功！
+  -> 决策: 总共分配 30 辆车。
+  -> 决策: 服务 90 个任务。
+  -> 警告: 79 个任务因运力或时间限制被放弃。
+
+==================================================
+=== RUNNING STAGE 2: SEQUENTIAL OPERATIONAL EXECUTION ===
+==================================================
+
+--- [规划第 1/30 辆车: HDT_1] ---
+  剩余任务池大小: 90
+  为 HDT_1 挑选了 9 个候选任务进行尝试。
+开始构建【第二阶段：运营执行 - 标准VRP逻辑版】模型...
+  -> 规划车辆: ['HDT_1']
+  -> 规划任务: ['Task_151', 'Task_15', 'Task_60', 'Task_158', 'Task_149', 'Task_123', 'Task_2', 'Task_49', 'Task_30']
+  [简化策略] 使用固定平均能耗率: 2.37 kWh/km
+【第二阶段 - 标准VRP逻辑版】模型构建完成。
+WARNING: Loading a SolverResults object with an 'aborted' status, but
+containing a solution
+  -> 结果: 未能为 HDT_1 找到可行的路径方案。
+     - 求解器状态: aborted
+     - 终止条件: maxTimeLimit
+
+--- [规划第 2/30 辆车: HDT_2] ---
+  剩余任务池大小: 90
+  为 HDT_2 挑选了 9 个候选任务进行尝试。
+开始构建【第二阶段：运营执行 - 标准VRP逻辑版】模型...
+  -> 规划车辆: ['HDT_2']
+  -> 规划任务: ['Task_123', 'Task_2', 'Task_49', 'Task_30', 'Task_26', 'Task_119', 'Task_52', 'Task_90', 'Task_44']
+  [简化策略] 使用固定平均能耗率: 2.38 kWh/km
+【第二阶段 - 标准VRP逻辑版】模型构建完成。
+WARNING: Loading a SolverResults object with an 'aborted' status, but
+containing a solution
+  -> 结果: 未能为 HDT_2 找到可行的路径方案。
+     - 求解器状态: aborted
+     - 终止条件: maxTimeLimit
+
+--- [规划第 3/30 辆车: HDT_3] ---
+  剩余任务池大小: 90
+  为 HDT_3 挑选了 9 个候选任务进行尝试。
+开始构建【第二阶段：运营执行 - 标准VRP逻辑版】模型...
+  -> 规划车辆: ['HDT_3']
+  -> 规划任务: ['Task_151', 'Task_15', 'Task_60', 'Task_158', 'Task_149', 'Task_123', 'Task_2', 'Task_49', 'Task_30']
+  [简化策略] 使用固定平均能耗率: 2.37 kWh/km
+【第二阶段 - 标准VRP逻辑版】模型构建完成。
+WARNING: Loading a SolverResults object with an 'aborted' status, but
+containing a solution
+  -> 结果: 未能为 HDT_3 找到可行的路径方案。
+     - 求解器状态: aborted
+     - 终止条件: maxTimeLimit
+
+--- [规划第 4/30 辆车: HDT_4] ---
+  剩余任务池大小: 90
+  为 HDT_4 挑选了 9 个候选任务进行尝试。
+开始构建【第二阶段：运营执行 - 标准VRP逻辑版】模型...
+  -> 规划车辆: ['HDT_4']
+  -> 规划任务: ['Task_123', 'Task_2', 'Task_49', 'Task_30', 'Task_26', 'Task_119', 'Task_52', 'Task_90', 'Task_44']
+  [简化策略] 使用固定平均能耗率: 2.38 kWh/km
+【第二阶段 - 标准VRP逻辑版】模型构建完成。
+WARNING: Loading a SolverResults object with an 'aborted' status, but
+containing a solution
+  -> 结果: 未能为 HDT_4 找到可行的路径方案。
+     - 求解器状态: aborted
+     - 终止条件: maxTimeLimit
+
+--- [规划第 5/30 辆车: HDT_5] ---
+  剩余任务池大小: 90
+  为 HDT_5 挑选了 9 个候选任务进行尝试。
+开始构建【第二阶段：运营执行 - 标准VRP逻辑版】模型...
+  -> 规划车辆: ['HDT_5']
+  -> 规划任务: ['Task_70', 'Task_139', 'Task_67', 'Task_118', 'Task_97', 'Task_104', 'Task_16', 'Task_141', 'Task_21']
+  [简化策略] 使用固定平均能耗率: 2.41 kWh/km
+【第二阶段 - 标准VRP逻辑版】模型构建完成。
+WARNING: Loading a SolverResults object with an 'aborted' status, but
+containing a solution
+  -> 结果: 未能为 HDT_5 找到可行的路径方案。
+     - 求解器状态: aborted
+     - 终止条件: maxTimeLimit
+
+--- [规划第 6/30 辆车: HDT_6] ---
+  剩余任务池大小: 90
+  为 HDT_6 挑选了 9 个候选任务进行尝试。
+开始构建【第二阶段：运营执行 - 标准VRP逻辑版】模型...
+  -> 规划车辆: ['HDT_6']
+  -> 规划任务: ['Task_141', 'Task_21', 'Task_156', 'Task_120', 'Task_71', 'Task_31', 'Task_118', 'Task_97', 'Task_104']
+  [简化策略] 使用固定平均能耗率: 2.29 kWh/km
+【第二阶段 - 标准VRP逻辑版】模型构建完成。
+WARNING: Loading a SolverResults object with an 'aborted' status, but
+containing a solution
+  -> 结果: 未能为 HDT_6 找到可行的路径方案。
+     - 求解器状态: aborted
+     - 终止条件: maxTimeLimit
+
+--- [规划第 7/30 辆车: HDT_7] ---
+  剩余任务池大小: 90
+  为 HDT_7 挑选了 9 个候选任务进行尝试。
+开始构建【第二阶段：运营执行 - 标准VRP逻辑版】模型...
+  -> 规划车辆: ['HDT_7']
+  -> 规划任务: ['Task_152', 'Task_92', 'Task_103', 'Task_64', 'Task_99', 'Task_95', 'Task_73', 'Task_160', 'Task_74']
+  [简化策略] 使用固定平均能耗率: 2.36 kWh/km
+【第二阶段 - 标准VRP逻辑版】模型构建完成。
+WARNING: Loading a SolverResults object with an 'aborted' status, but
+containing a solution
+  -> 结果: 未能为 HDT_7 找到可行的路径方案。
+     - 求解器状态: aborted
+     - 终止条件: maxTimeLimit
+
+--- [规划第 8/30 辆车: HDT_8] ---
+  剩余任务池大小: 90
+  为 HDT_8 挑选了 9 个候选任务进行尝试。
+开始构建【第二阶段：运营执行 - 标准VRP逻辑版】模型...
+  -> 规划车辆: ['HDT_8']
+  -> 规划任务: ['Task_123', 'Task_2', 'Task_49', 'Task_30', 'Task_26', 'Task_119', 'Task_52', 'Task_90', 'Task_44']
+  [简化策略] 使用固定平均能耗率: 2.38 kWh/km
+【第二阶段 - 标准VRP逻辑版】模型构建完成。
+WARNING: Loading a SolverResults object with an 'aborted' status, but
+containing a solution
+  -> 结果: 未能为 HDT_8 找到可行的路径方案。
+     - 求解器状态: aborted
+     - 终止条件: maxTimeLimit
+
+--- [规划第 9/30 辆车: HDT_9] ---
+  剩余任务池大小: 90
+  为 HDT_9 挑选了 9 个候选任务进行尝试。
+开始构建【第二阶段：运营执行 - 标准VRP逻辑版】模型...
+  -> 规划车辆: ['HDT_9']
+  -> 规划任务: ['Task_151', 'Task_15', 'Task_60', 'Task_158', 'Task_149', 'Task_123', 'Task_2', 'Task_49', 'Task_30']
+  [简化策略] 使用固定平均能耗率: 2.37 kWh/km
+【第二阶段 - 标准VRP逻辑版】模型构建完成。
+WARNING: Loading a SolverResults object with an 'aborted' status, but
+containing a solution
+  -> 结果: 未能为 HDT_9 找到可行的路径方案。
+     - 求解器状态: aborted
+     - 终止条件: maxTimeLimit
+
+--- [规划第 10/30 辆车: HDT_10] ---
+  剩余任务池大小: 90
+  为 HDT_10 挑选了 9 个候选任务进行尝试。
+开始构建【第二阶段：运营执行 - 标准VRP逻辑版】模型...
+  -> 规划车辆: ['HDT_10']
+  -> 规划任务: ['Task_70', 'Task_139', 'Task_67', 'Task_118', 'Task_97', 'Task_104', 'Task_16', 'Task_141', 'Task_21']
+  [简化策略] 使用固定平均能耗率: 2.41 kWh/km
+【第二阶段 - 标准VRP逻辑版】模型构建完成。
+WARNING: Loading a SolverResults object with an 'aborted' status, but
+containing a solution
+  -> 结果: 未能为 HDT_10 找到可行的路径方案。
+     - 求解器状态: aborted
+     - 终止条件: maxTimeLimit
+
+--- [规划第 11/30 辆车: HDT_11] ---
+  剩余任务池大小: 90
+  为 HDT_11 挑选了 9 个候选任务进行尝试。
+开始构建【第二阶段：运营执行 - 标准VRP逻辑版】模型...
+  -> 规划车辆: ['HDT_11']
+  -> 规划任务: ['Task_123', 'Task_2', 'Task_49', 'Task_30', 'Task_26', 'Task_119', 'Task_52', 'Task_90', 'Task_44']
+  [简化策略] 使用固定平均能耗率: 2.38 kWh/km
+【第二阶段 - 标准VRP逻辑版】模型构建完成。
+WARNING: Loading a SolverResults object with an 'aborted' status, but
+containing a solution
+  -> 结果: 未能为 HDT_11 找到可行的路径方案。
+     - 求解器状态: aborted
+     - 终止条件: maxTimeLimit
+
+--- [规划第 12/30 辆车: HDT_12] ---
+  剩余任务池大小: 90
+  为 HDT_12 挑选了 9 个候选任务进行尝试。
+开始构建【第二阶段：运营执行 - 标准VRP逻辑版】模型...
+  -> 规划车辆: ['HDT_12']
+  -> 规划任务: ['Task_151', 'Task_15', 'Task_60', 'Task_158', 'Task_149', 'Task_123', 'Task_2', 'Task_49', 'Task_30']
+  [简化策略] 使用固定平均能耗率: 2.37 kWh/km
+【第二阶段 - 标准VRP逻辑版】模型构建完成。
+WARNING: Loading a SolverResults object with an 'aborted' status, but
+containing a solution
+  -> 结果: 未能为 HDT_12 找到可行的路径方案。
+     - 求解器状态: aborted
+     - 终止条件: maxTimeLimit
+
+--- [规划第 13/30 辆车: HDT_13] ---
+  剩余任务池大小: 90
+  为 HDT_13 挑选了 9 个候选任务进行尝试。
+开始构建【第二阶段：运营执行 - 标准VRP逻辑版】模型...
+  -> 规划车辆: ['HDT_13']
+  -> 规划任务: ['Task_70', 'Task_139', 'Task_67', 'Task_118', 'Task_97', 'Task_104', 'Task_16', 'Task_141', 'Task_21']
+  [简化策略] 使用固定平均能耗率: 2.41 kWh/km
+【第二阶段 - 标准VRP逻辑版】模型构建完成。
+WARNING: Loading a SolverResults object with an 'aborted' status, but
+containing a solution
+  -> 结果: 未能为 HDT_13 找到可行的路径方案。
+     - 求解器状态: aborted
+     - 终止条件: maxTimeLimit
+
+--- [规划第 14/30 辆车: HDT_14] ---
+  剩余任务池大小: 90
+  为 HDT_14 挑选了 9 个候选任务进行尝试。
+开始构建【第二阶段：运营执行 - 标准VRP逻辑版】模型...
+  -> 规划车辆: ['HDT_14']
+  -> 规划任务: ['Task_151', 'Task_15', 'Task_60', 'Task_158', 'Task_149', 'Task_123', 'Task_2', 'Task_49', 'Task_30']
+  [简化策略] 使用固定平均能耗率: 2.37 kWh/km
+【第二阶段 - 标准VRP逻辑版】模型构建完成。
+WARNING: Loading a SolverResults object with an 'aborted' status, but
+containing a solution
+  -> 结果: 未能为 HDT_14 找到可行的路径方案。
+     - 求解器状态: aborted
+     - 终止条件: maxTimeLimit
+
+--- [规划第 15/30 辆车: HDT_15] ---
+  剩余任务池大小: 90
+  为 HDT_15 挑选了 9 个候选任务进行尝试。
+开始构建【第二阶段：运营执行 - 标准VRP逻辑版】模型...
+  -> 规划车辆: ['HDT_15']
+  -> 规划任务: ['Task_141', 'Task_21', 'Task_156', 'Task_120', 'Task_71', 'Task_31', 'Task_118', 'Task_97', 'Task_104']
+  [简化策略] 使用固定平均能耗率: 2.29 kWh/km
+【第二阶段 - 标准VRP逻辑版】模型构建完成。
+WARNING: Loading a SolverResults object with an 'aborted' status, but
+containing a solution
+  -> 结果: 未能为 HDT_15 找到可行的路径方案。
+     - 求解器状态: aborted
+     - 终止条件: maxTimeLimit
+
+--- [规划第 16/30 辆车: HDT_16] ---
+  剩余任务池大小: 90
+  为 HDT_16 挑选了 9 个候选任务进行尝试。
+开始构建【第二阶段：运营执行 - 标准VRP逻辑版】模型...
+  -> 规划车辆: ['HDT_16']
+  -> 规划任务: ['Task_123', 'Task_2', 'Task_49', 'Task_30', 'Task_26', 'Task_119', 'Task_52', 'Task_90', 'Task_44']
+  [简化策略] 使用固定平均能耗率: 2.38 kWh/km
+【第二阶段 - 标准VRP逻辑版】模型构建完成。
+WARNING: Loading a SolverResults object with an 'aborted' status, but
+containing a solution
+  -> 结果: 未能为 HDT_16 找到可行的路径方案。
+     - 求解器状态: aborted
+     - 终止条件: maxTimeLimit
+
+--- [规划第 17/30 辆车: HDT_17] ---
+  剩余任务池大小: 90
+  为 HDT_17 挑选了 9 个候选任务进行尝试。
+开始构建【第二阶段：运营执行 - 标准VRP逻辑版】模型...
+  -> 规划车辆: ['HDT_17']
+  -> 规划任务: ['Task_152', 'Task_92', 'Task_103', 'Task_64', 'Task_99', 'Task_95', 'Task_73', 'Task_160', 'Task_74']
+  [简化策略] 使用固定平均能耗率: 2.36 kWh/km
+【第二阶段 - 标准VRP逻辑版】模型构建完成。
+WARNING: Loading a SolverResults object with an 'aborted' status, but
+containing a solution
+  -> 结果: 未能为 HDT_17 找到可行的路径方案。
+     - 求解器状态: aborted
+     - 终止条件: maxTimeLimit
+
+--- [规划第 18/30 辆车: HDT_18] ---
+  剩余任务池大小: 90
+  为 HDT_18 挑选了 9 个候选任务进行尝试。
+开始构建【第二阶段：运营执行 - 标准VRP逻辑版】模型...
+  -> 规划车辆: ['HDT_18']
+  -> 规划任务: ['Task_152', 'Task_92', 'Task_103', 'Task_64', 'Task_99', 'Task_95', 'Task_73', 'Task_160', 'Task_74']
+  [简化策略] 使用固定平均能耗率: 2.36 kWh/km
+【第二阶段 - 标准VRP逻辑版】模型构建完成。
+WARNING: Loading a SolverResults object with an 'aborted' status, but
+containing a solution
+  -> 结果: 未能为 HDT_18 找到可行的路径方案。
+     - 求解器状态: aborted
+     - 终止条件: maxTimeLimit
+
+--- [规划第 19/30 辆车: HDT_19] ---
+  剩余任务池大小: 90
+  为 HDT_19 挑选了 9 个候选任务进行尝试。
+开始构建【第二阶段：运营执行 - 标准VRP逻辑版】模型...
+  -> 规划车辆: ['HDT_19']
+  -> 规划任务: ['Task_123', 'Task_2', 'Task_49', 'Task_30', 'Task_26', 'Task_119', 'Task_52', 'Task_90', 'Task_44']
+  [简化策略] 使用固定平均能耗率: 2.38 kWh/km
+【第二阶段 - 标准VRP逻辑版】模型构建完成。
+WARNING: Loading a SolverResults object with an 'aborted' status, but
+containing a solution
+  -> 结果: 未能为 HDT_19 找到可行的路径方案。
+     - 求解器状态: aborted
+     - 终止条件: maxTimeLimit
+
+--- [规划第 20/30 辆车: HDT_20] ---
+  剩余任务池大小: 90
+  为 HDT_20 挑选了 9 个候选任务进行尝试。
+开始构建【第二阶段：运营执行 - 标准VRP逻辑版】模型...
+  -> 规划车辆: ['HDT_20']
+  -> 规划任务: ['Task_70', 'Task_139', 'Task_67', 'Task_118', 'Task_97', 'Task_104', 'Task_16', 'Task_141', 'Task_21']
+  [简化策略] 使用固定平均能耗率: 2.41 kWh/km
+【第二阶段 - 标准VRP逻辑版】模型构建完成。
+WARNING: Loading a SolverResults object with an 'aborted' status, but
+containing a solution
+  -> 结果: 未能为 HDT_20 找到可行的路径方案。
+     - 求解器状态: aborted
+     - 终止条件: maxTimeLimit
+
+--- [规划第 21/30 辆车: HDT_21] ---
+  剩余任务池大小: 90
+  为 HDT_21 挑选了 9 个候选任务进行尝试。
+开始构建【第二阶段：运营执行 - 标准VRP逻辑版】模型...
+  -> 规划车辆: ['HDT_21']
+  -> 规划任务: ['Task_141', 'Task_21', 'Task_156', 'Task_120', 'Task_71', 'Task_31', 'Task_118', 'Task_97', 'Task_104']
+  [简化策略] 使用固定平均能耗率: 2.29 kWh/km
+【第二阶段 - 标准VRP逻辑版】模型构建完成。
+WARNING: Loading a SolverResults object with an 'aborted' status, but
+containing a solution
+  -> 结果: 未能为 HDT_21 找到可行的路径方案。
+     - 求解器状态: aborted
+     - 终止条件: maxTimeLimit
+
+--- [规划第 22/30 辆车: HDT_22] ---
+  剩余任务池大小: 90
+  为 HDT_22 挑选了 9 个候选任务进行尝试。
+开始构建【第二阶段：运营执行 - 标准VRP逻辑版】模型...
+  -> 规划车辆: ['HDT_22']
+  -> 规划任务: ['Task_152', 'Task_92', 'Task_103', 'Task_64', 'Task_99', 'Task_95', 'Task_73', 'Task_160', 'Task_74']
+  [简化策略] 使用固定平均能耗率: 2.36 kWh/km
+【第二阶段 - 标准VRP逻辑版】模型构建完成。
+WARNING: Loading a SolverResults object with an 'aborted' status, but
+containing a solution
+  -> 结果: 未能为 HDT_22 找到可行的路径方案。
+     - 求解器状态: aborted
+     - 终止条件: maxTimeLimit
+
+--- [规划第 23/30 辆车: HDT_23] ---
+  剩余任务池大小: 90
+  为 HDT_23 挑选了 9 个候选任务进行尝试。
+开始构建【第二阶段：运营执行 - 标准VRP逻辑版】模型...
+  -> 规划车辆: ['HDT_23']
+  -> 规划任务: ['Task_141', 'Task_21', 'Task_156', 'Task_120', 'Task_71', 'Task_31', 'Task_118', 'Task_97', 'Task_104']
+  [简化策略] 使用固定平均能耗率: 2.29 kWh/km
+【第二阶段 - 标准VRP逻辑版】模型构建完成。
+WARNING: Loading a SolverResults object with an 'aborted' status, but
+containing a solution
+  -> 结果: 未能为 HDT_23 找到可行的路径方案。
+     - 求解器状态: aborted
+     - 终止条件: maxTimeLimit
+
+--- [规划第 24/30 辆车: HDT_24] ---
+  剩余任务池大小: 90
+  为 HDT_24 挑选了 9 个候选任务进行尝试。
+开始构建【第二阶段：运营执行 - 标准VRP逻辑版】模型...
+  -> 规划车辆: ['HDT_24']
+  -> 规划任务: ['Task_123', 'Task_2', 'Task_49', 'Task_30', 'Task_26', 'Task_119', 'Task_52', 'Task_90', 'Task_44']
+  [简化策略] 使用固定平均能耗率: 2.38 kWh/km
+【第二阶段 - 标准VRP逻辑版】模型构建完成。
+WARNING: Loading a SolverResults object with an 'aborted' status, but
+containing a solution
+  -> 结果: 未能为 HDT_24 找到可行的路径方案。
+     - 求解器状态: aborted
+     - 终止条件: maxTimeLimit
+
+--- [规划第 25/30 辆车: HDT_25] ---
+  剩余任务池大小: 90
+  为 HDT_25 挑选了 9 个候选任务进行尝试。
+开始构建【第二阶段：运营执行 - 标准VRP逻辑版】模型...
+  -> 规划车辆: ['HDT_25']
+  -> 规划任务: ['Task_70', 'Task_139', 'Task_67', 'Task_118', 'Task_97', 'Task_104', 'Task_16', 'Task_141', 'Task_21']
+  [简化策略] 使用固定平均能耗率: 2.41 kWh/km
+【第二阶段 - 标准VRP逻辑版】模型构建完成。
+WARNING: Loading a SolverResults object with an 'aborted' status, but
+containing a solution
+  -> 结果: 未能为 HDT_25 找到可行的路径方案。
+     - 求解器状态: aborted
+     - 终止条件: maxTimeLimit
+
+--- [规划第 26/30 辆车: HDT_26] ---
+  剩余任务池大小: 90
+  为 HDT_26 挑选了 9 个候选任务进行尝试。
+开始构建【第二阶段：运营执行 - 标准VRP逻辑版】模型...
+  -> 规划车辆: ['HDT_26']
+  -> 规划任务: ['Task_151', 'Task_15', 'Task_60', 'Task_158', 'Task_149', 'Task_123', 'Task_2', 'Task_49', 'Task_30']
+  [简化策略] 使用固定平均能耗率: 2.37 kWh/km
+【第二阶段 - 标准VRP逻辑版】模型构建完成。
+WARNING: Loading a SolverResults object with an 'aborted' status, but
+containing a solution
+  -> 结果: 未能为 HDT_26 找到可行的路径方案。
+     - 求解器状态: aborted
+     - 终止条件: maxTimeLimit
+
+--- [规划第 27/30 辆车: HDT_27] ---
+  剩余任务池大小: 90
+  为 HDT_27 挑选了 9 个候选任务进行尝试。
+开始构建【第二阶段：运营执行 - 标准VRP逻辑版】模型...
+  -> 规划车辆: ['HDT_27']
+  -> 规划任务: ['Task_70', 'Task_139', 'Task_67', 'Task_118', 'Task_97', 'Task_104', 'Task_16', 'Task_141', 'Task_21']
+  [简化策略] 使用固定平均能耗率: 2.41 kWh/km
+【第二阶段 - 标准VRP逻辑版】模型构建完成。
+WARNING: Loading a SolverResults object with an 'aborted' status, but
+containing a solution
+  -> 结果: 未能为 HDT_27 找到可行的路径方案。
+     - 求解器状态: aborted
+     - 终止条件: maxTimeLimit
+
+--- [规划第 28/30 辆车: HDT_28] ---
+  剩余任务池大小: 90
+  为 HDT_28 挑选了 9 个候选任务进行尝试。
+开始构建【第二阶段：运营执行 - 标准VRP逻辑版】模型...
+  -> 规划车辆: ['HDT_28']
+  -> 规划任务: ['Task_152', 'Task_92', 'Task_103', 'Task_64', 'Task_99', 'Task_95', 'Task_73', 'Task_160', 'Task_74']
+  [简化策略] 使用固定平均能耗率: 2.36 kWh/km
+【第二阶段 - 标准VRP逻辑版】模型构建完成。
+WARNING: Loading a SolverResults object with an 'aborted' status, but
+containing a solution
+  -> 结果: 未能为 HDT_28 找到可行的路径方案。
+     - 求解器状态: aborted
+     - 终止条件: maxTimeLimit
+
+--- [规划第 29/30 辆车: HDT_29] ---
+  剩余任务池大小: 90
+  为 HDT_29 挑选了 9 个候选任务进行尝试。
+开始构建【第二阶段：运营执行 - 标准VRP逻辑版】模型...
+  -> 规划车辆: ['HDT_29']
+  -> 规划任务: ['Task_70', 'Task_139', 'Task_67', 'Task_118', 'Task_97', 'Task_104', 'Task_16', 'Task_141', 'Task_21']
+  [简化策略] 使用固定平均能耗率: 2.41 kWh/km
+【第二阶段 - 标准VRP逻辑版】模型构建完成。
+WARNING: Loading a SolverResults object with an 'aborted' status, but
+containing a solution
+  -> 结果: 未能为 HDT_29 找到可行的路径方案。
+     - 求解器状态: aborted
+     - 终止条件: maxTimeLimit
+
+--- [规划第 30/30 辆车: HDT_30] ---
+  剩余任务池大小: 90
+  为 HDT_30 挑选了 9 个候选任务进行尝试。
+开始构建【第二阶段：运营执行 - 标准VRP逻辑版】模型...
+  -> 规划车辆: ['HDT_30']
+  -> 规划任务: ['Task_123', 'Task_2', 'Task_49', 'Task_30', 'Task_26', 'Task_119', 'Task_52', 'Task_90', 'Task_44']
+  [简化策略] 使用固定平均能耗率: 2.38 kWh/km
+【第二阶段 - 标准VRP逻辑版】模型构建完成。
+WARNING: Loading a SolverResults object with an 'aborted' status, but
+containing a solution
+  -> 结果: 未能为 HDT_30 找到可行的路径方案。
+     - 求解器状态: aborted
+     - 终止条件: maxTimeLimit
+
+==================================================
+=== 第二阶段顺序规划完成 ===
+总计分配了 0 个任务。
+警告: 90 个任务在第二阶段未能被任何车辆服务。
+
+==================================================
+=== POST ANALYSIS ===
+==================================================
+所有车辆规划的总估算成本: 0.00
+
+注意：由于采用顺序启发式方法，无法绘制包含所有路径的全局路线图。
+流程成功结束！
+
+进程已结束，退出代码为 0
