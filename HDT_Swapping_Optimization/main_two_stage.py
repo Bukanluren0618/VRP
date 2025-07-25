@@ -3,6 +3,8 @@
 import sys
 import os
 from pyomo.environ import *
+from pyomo.opt import TerminationCondition, SolverStatus
+from tqdm import tqdm
 import pandas as pd
 import math
 
@@ -112,7 +114,7 @@ def run_greedy_insertion_stage2(data, solver, vehicle_ids, task_ids):
                 f"  -> 开始新一轮插入尝试，当前已分配 {len(committed_tasks_for_this_vehicle)} 个任务，剩余任务池 {len(remaining_tasks_pool)} 个。")
 
             # 遍历所有剩余任务，找到插入成本最低的一个
-            for candidate_task in remaining_tasks_pool:
+            for candidate_task in tqdm(remaining_tasks_pool, desc=f"任务尝试 {vehicle_id}", leave=False):
 
                 # 创建一个包含已锁定任务 + 1个候选任务的模型
                 tasks_for_this_run = committed_tasks_for_this_vehicle + [candidate_task]
@@ -123,13 +125,13 @@ def run_greedy_insertion_stage2(data, solver, vehicle_ids, task_ids):
                 # 对于这种小问题，求解时间可以很短
                 solver.options.clear()  # 重置求解器参数
                 if config.SOLVER_NAME.lower() == 'gurobi':
-                    solver.options['TimeLimit'] = 20
+                    solver.options['TimeLimit'] = config.TIME_LIMIT_SECONDS
                 elif config.SOLVER_NAME.lower() == 'ipopt':
-                    solver.options['max_cpu_time'] = 20
-                results = solver.solve(model_single_insertion, tee=False)
+                    solver.options['max_cpu_time'] = config.TIME_LIMIT_SECONDS
+                results = solver.solve(model_single_insertion, tee=True)
                 if results.solver.termination_condition not in (
-                    TerminationCondition.optimal,
-                    TerminationCondition.locallyOptimal,
+                        TerminationCondition.optimal,
+                        TerminationCondition.locallyOptimal,
                 ):
                     print(
                         f"    -> 候选任务 {candidate_task} 求解器未找到解: status={results.solver.status}, tc={results.solver.termination_condition}"
@@ -137,11 +139,11 @@ def run_greedy_insertion_stage2(data, solver, vehicle_ids, task_ids):
                     if hasattr(results.solver, 'message') and results.solver.message:
                         print(f"       Solver message: {results.solver.message}")
                     if (
-                        config.SOLVER_NAME.lower() == 'gurobi'
-                        and results.solver.status in (SolverStatus.error, SolverStatus.aborted)
+                            config.SOLVER_NAME.lower() == 'gurobi'
+                            and results.solver.status in (SolverStatus.error, SolverStatus.aborted)
                     ) or results.solver.termination_condition in (
-                        TerminationCondition.infeasible,
-                        TerminationCondition.infeasibleOrUnbounded,
+                            TerminationCondition.infeasible,
+                            TerminationCondition.infeasibleOrUnbounded,
                     ):
                         print("    -> 尝试执行 Gurobi IIS 分析以定位冲突约束...")
                         try:
