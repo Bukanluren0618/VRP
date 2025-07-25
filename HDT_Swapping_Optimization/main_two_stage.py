@@ -3,274 +3,172 @@
 import sys
 import os
 from pyomo.environ import *
-from pyomo.opt import TerminationCondition, SolverStatus
-from tqdm import tqdm
 import pandas as pd
 import math
+from tqdm import tqdm
 
-# 将src目录添加到Python路径
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), 'src')))
 
 from src.common import config_final as config
 from src.data_processing import loader_final
-from src.modeling import stage1_tactical
 from src.modeling import model_final as stage2_model_builder
 from src.analysis import post_analysis
 
-def compute_gurobi_iis(model, filename="model_iis.ilp"):
-    """Run Gurobi IIS analysis and print conflicting constraints."""
-    try:
-        solver = SolverFactory("gurobi_persistent")
-        solver.set_instance(model)
-        solver._solver_model.computeIIS()
-        solver._solver_model.write(filename)
-        for constr in solver._solver_model.getConstrs():
-            if constr.IISConstr:
-                print(f"       IIS约束: {constr.ConstrName}")
-        try:
-            bound = solver._solver_model.ObjBound
-            print(f"       当前BestBd: {bound}")
-        except Exception:
-            pass
-        print(f"    -> IIS written to {filename}")
-    except Exception as e:
-        print(f"       IIS分析失败: {e}")
 
+def check_route_feasibility(data, solver, vehicle_id, route, task_ids_in_route):
+    """
+    **核心验证函数**
+    调用精确模型来验证一条固定路径的可行性与成本。
+    """
+    # 如果路径上只有仓库，成本为0
+    if len(route) <= 2:
+        return 0, None
 
+    # 构建一个专门用于验证的模型，传入固定的路径
+    model = stage2_model_builder.create_operational_model(
+        data,
+        vehicle_ids=[vehicle_id],
+        task_ids=task_ids_in_route,
+        fixed_route=route
+    )
 
+    results = solver.solve(model, tee=False)
 
-def run_stage1(data, solver):
-    """第一阶段：战术规划，筛选出值得服务的任务。"""
-    print("\n" + "=" * 50)
-    print("=== RUNNING STAGE 1: TACTICAL ALLOCATION ===")
-    print("=" * 50)
-    model_s1 = stage1_tactical.create_tactical_model(data)
-    results_s1 = solver.solve(model_s1, tee=False)
+    # 只有当模型找到最优解，并且没有任何电量亏空时，才认为该路径是"严格可行"的
+    if results.solver.termination_condition == 'optimal':
+        total_soc_deficit = sum(value(model.soc_deficit.get((n, vehicle_id), 0)) for n in model.NODES)
+        if total_soc_deficit < 0.01:
+            return value(model.objective), model
 
-    if (
-        results_s1.solver.status == 'ok'
-        and results_s1.solver.termination_condition
-        in (TerminationCondition.optimal, TerminationCondition.locallyOptimal)
-    ):
-
-
-        print("[S1-SUCCESS] 战术规划求解成功！")
-        allocated_trucks = sum(math.ceil(value(model_s1.n_trucks[d])) for d in model_s1.DEPOTS)
-        served_tasks = [t for t in model_s1.TASKS if value(model_s1.is_task_served[t]) > 0.5]
-        unserved_tasks_count = len(model_s1.TASKS) - len(served_tasks)
-
-        print(f"  -> 决策: 总共分配 {allocated_trucks} 辆车。")
-        print(f"  -> 决策: 服务 {len(served_tasks)} 个任务。")
-        if unserved_tasks_count > 0:
-            print(f"  -> 警告: {unserved_tasks_count} 个任务因运力或时间限制被放弃。")
-
-            tasks_by_depot = {d: [] for d in model_s1.DEPOTS}
-            for t_id in model_s1.TASKS:
-                depot = data['tasks'][t_id]['depot']
-                tasks_by_depot[depot].append(t_id)
-            print("  -> 各发车点任务统计与需求预估:")
-            for d in model_s1.DEPOTS:
-                total_tasks = len(tasks_by_depot[d])
-                total_hours = sum(data['tasks'][t]['estimated_duration'] for t in tasks_by_depot[d])
-                req_count = math.ceil(total_tasks / config.AVG_TASKS_PER_TRUCK)
-                req_time = math.ceil(total_hours / config.MAX_WORKING_HOURS_PER_TRUCK)
-                need = max(req_count, req_time)
-                print(f"     - {d}: {total_tasks} 个任务, 预计 {total_hours:.1f} 小时, 至少需要 {need} 辆车")
-
-        available_vehicles = list(data['vehicles'].keys())
-        vehicle_ids_to_plan = available_vehicles[:min(allocated_trucks, len(available_vehicles))]
-        return vehicle_ids_to_plan, served_tasks
-    else:
-        print("[S1-FAILURE] 战术规划求解失败。")
-        return None, None
+    # 任何其他情况（超时、不可行、有电量亏空）都返回无穷大成本
+    return float('inf'), None
 
 
 def run_greedy_insertion_stage2(data, solver, vehicle_ids, task_ids):
     """
-    第二阶段（最终版）：采用贪心插入启发式，保证能得到解。
+    **主算法**
+    贪心插入，每一步都使用精确模型进行验证。
     """
     print("\n" + "=" * 50)
-    print("=== RUNNING STAGE 2: GREEDY INSERTION EXECUTION ===")
+    print("=== RUNNING STAGE 2: GREEDY INSERTION + EXACT CHECKING ===")
     print("=" * 50)
 
-    remaining_tasks_pool = set(task_ids)
+    # 初始化所有车辆的路径（只包含起点和终点仓库）
+    routes = {k: [data['vehicles'][k]['depot_id'], data['vehicles'][k]['depot_id']] for k in vehicle_ids}
+    tasks_in_routes = {k: [] for k in vehicle_ids}
+    unassigned_tasks = set(task_ids)
 
+    iteration = 1
+    while unassigned_tasks:
+        print(f"\n--- [插入迭代 {iteration}] ---")
+        print(f"待分配任务池: {len(unassigned_tasks)}")
 
-    # Ipopt 无法处理整数规划。若用户仍以 Ipopt 作为默认求解器，尝试切换到 CBC；
-    if config.SOLVER_NAME.lower() == 'ipopt':
-        try:
-            cbc_solver = SolverFactory('cbc')
-            if cbc_solver.available():
-                solver = cbc_solver
-                solver.options.clear()
-                print("[INFO] 使用 CBC 求解第二阶段整数模型 (Ipopt 不支持 MIP)。")
-            else:
-                print("[ERROR] Ipopt 无法求解含整数的第二阶段模型，且未找到 CBC 求解器。")
-                return None, False
-        except Exception:
-            print("[ERROR] 无法创建 CBC 求解器，第二阶段无法继续。")
-            return None, False
-    final_aggregated_model = ConcreteModel()
-    final_aggregated_model.objective = Objective(expr=0)
-    all_assigned_tasks = set()
+        best_insertion = {'cost_increase': float('inf'), 'vehicle': None, 'task': None, 'position': None, 'new_cost': 0}
 
-    for k_idx, vehicle_id in enumerate(vehicle_ids):
-        if not remaining_tasks_pool:
-            print("\n所有任务已分配完毕，提前结束规划。")
-            break
+        # 1. 计算当前所有路径的总成本
+        current_total_cost = 0
+        for k in vehicle_ids:
+            cost, _ = check_route_feasibility(data, solver, k, routes[k], tasks_in_routes[k])
+            current_total_cost += cost
 
-        print(f"\n--- [规划第 {k_idx + 1}/{len(vehicle_ids)} 辆车: {vehicle_id}] ---")
+        # 2. 尝试所有可能的插入
+        pbar = tqdm(
+            total=len(unassigned_tasks) * len(vehicle_ids) * (len(max(routes.values(), key=len)) if routes else 1),
+            desc="评估插入点")
+        for task_to_insert in list(unassigned_tasks):
+            customer_node = data['tasks'][task_to_insert]['delivery_to']
+            for k in vehicle_ids:
+                current_route = routes[k]
+                for i in range(1, len(current_route)):
+                    pbar.update(1)
+                    temp_route = current_route[:i] + [customer_node] + current_route[i:]
+                    temp_tasks = tasks_in_routes[k] + [task_to_insert]
 
-        committed_tasks_for_this_vehicle = []
+                    # 3. 精确验证新路径
+                    new_cost, _ = check_route_feasibility(data, solver, k, temp_route, temp_tasks)
 
-        # 持续为当前车辆插入任务，直到无法再插入为止
-        while True:
-            best_insertion_cost = float('inf')
-            best_task_to_insert = None
-            best_model_objective = float('inf')
+                    if new_cost != float('inf'):
+                        # 计算成本增量
+                        cost_increase = new_cost - current_total_cost
+                        if cost_increase < best_insertion['cost_increase']:
+                            best_insertion = {'cost_increase': cost_increase, 'vehicle': k, 'task': task_to_insert,
+                                              'position': i, 'new_cost': new_cost}
+        pbar.close()
 
-            # 如果任务池空了，就跳出内层循环
-            if not remaining_tasks_pool:
-                break
+        # 4. 执行最佳插入
+        if best_insertion['vehicle'] is not None:
+            k, task, pos = best_insertion['vehicle'], best_insertion['task'], best_insertion['position']
+            customer = data['tasks'][task]['delivery_to']
+
+            routes[k].insert(pos, customer)
+            tasks_in_routes[k].append(task)
+            unassigned_tasks.remove(task)
 
             print(
-                f"  -> 开始新一轮插入尝试，当前已分配 {len(committed_tasks_for_this_vehicle)} 个任务，剩余任务池 {len(remaining_tasks_pool)} 个。")
-
-            # 遍历所有剩余任务，找到插入成本最低的一个
-            for candidate_task in tqdm(remaining_tasks_pool, desc=f"任务尝试 {vehicle_id}", leave=False):
-
-                # 创建一个包含已锁定任务 + 1个候选任务的模型
-                tasks_for_this_run = committed_tasks_for_this_vehicle + [candidate_task]
-
-                model_single_insertion = stage2_model_builder.create_operational_model(data, [vehicle_id],
-                                                                                       tasks_for_this_run)
-
-                # 对于这种小问题，求解时间可以很短
-                solver.options.clear()  # 重置求解器参数
-                if config.SOLVER_NAME.lower() == 'gurobi':
-                    solver.options['TimeLimit'] = config.TIME_LIMIT_SECONDS
-                    solver.options['MIPGap'] = config.MIP_GAP
-                    solver.options['MIPFocus'] = config.MIP_FOCUS
-                    solver.options['Heuristics'] = config.HEURISTICS
-                    solver.options['Cuts'] = config.CUTS
-                elif config.SOLVER_NAME.lower() == 'ipopt':
-                    solver.options['max_cpu_time'] = config.TIME_LIMIT_SECONDS
-                results = solver.solve(model_single_insertion, tee=True)
-                if hasattr(solver, "_solver_model"):
-                    try:
-                        print(
-                            f"       求解器返回 BestBd={solver._solver_model.ObjBound}"
-                        )
-                    except Exception:
-                        pass
-                if results.solver.termination_condition not in (
-                        TerminationCondition.optimal,
-                        TerminationCondition.locallyOptimal,
-                ):
-                    print(
-                        f"    -> 候选任务 {candidate_task} 求解器未找到解: status={results.solver.status}, tc={results.solver.termination_condition}"
-                    )
-                    if hasattr(results.solver, 'message') and results.solver.message:
-                        print(f"       Solver message: {results.solver.message}")
-                    if (
-                            config.SOLVER_NAME.lower() == "gurobi"
-                            and results.solver.status in (SolverStatus.error, SolverStatus.aborted)
-                    ) or results.solver.termination_condition in (
-                            TerminationCondition.infeasible,
-                            TerminationCondition.infeasibleOrUnbounded,
-                    ):
-                        print("    -> 尝试执行 Gurobi IIS 分析以定位冲突约束...")
-                        compute_gurobi_iis(model_single_insertion, "stage2_iis.ilp")
-
-                # 检查这个插入是否可行
-                try:
-                    # 尝试读取目标函数值，如果成功，说明找到了一个可行解
-                    current_objective = value(model_single_insertion.objective)
-
-                    # 检查候选任务是否真的被服务了
-                    is_candidate_served = value(
-                        model_single_insertion.y[data['tasks'][candidate_task]['delivery_to'], vehicle_id]) > 0.5
-
-                    if is_candidate_served:
-                        # 计算插入成本（这里简化为总目标函数值）
-                        insertion_cost = current_objective
-                        if insertion_cost < best_insertion_cost:
-                            best_insertion_cost = insertion_cost
-                            best_task_to_insert = candidate_task
-                            best_model_objective = current_objective
-
-                except (ValueError, AttributeError):
-                    # 如果读取失败，说明这个插入不可行，直接跳过
-                    continue
-
-            # 如果在一整轮遍历后，找到了可以插入的任务
-            if best_task_to_insert is not None:
-                print(f"  --> 成功! 找到最佳插入任务: {best_task_to_insert}，成本为 {best_insertion_cost:.2f}")
-                # 将这个任务正式“提交”
-                committed_tasks_for_this_vehicle.append(best_task_to_insert)
-                all_assigned_tasks.add(best_task_to_insert)
-                remaining_tasks_pool.remove(best_task_to_insert)
-            else:
-                # 如果遍历完所有任务都无法插入，说明这辆车满了
-                print(f"  --> 本轮无任务可插入，车辆 {vehicle_id} 规划完成。")
-                break  # 结束当前车辆的规划
-
-        # 更新总成本
-        if committed_tasks_for_this_vehicle:
-            # 使用最后一次成功插入时的模型目标值作为该车的最终成本
-            final_aggregated_model.objective.expr += best_model_objective
+                f"  -> **插入成功**: 将任务 {task} 插入车辆 {k}。成本增加: {best_insertion['cost_increase']:.2f}。新路径: {' -> '.join(routes[k])}")
+            iteration += 1
+        else:
+            print("  -> **本轮无更多可行的插入**，算法结束。")
+            break
 
     print("\n" + "=" * 50)
-    print("=== 第二阶段贪心插入规划完成 ===")
-    print(f"总计分配了 {len(all_assigned_tasks)} 个任务。")
-    if remaining_tasks_pool:
-        print(f"警告: {len(remaining_tasks_pool)} 个任务在第二阶段未能被任何车辆服务。")
+    print("=== 第二阶段规划完成 ===")
 
-    return final_aggregated_model, True
+    final_cost = 0
+    total_assigned_tasks = 0
+    final_models = {}
+    for k in vehicle_ids:
+        if len(routes[k]) > 2:
+            print(f"车辆 {k} 的最终路径: {' -> '.join(routes[k])}")
+            cost, model = check_route_feasibility(data, solver, k, routes[k], tasks_in_routes[k])
+            final_cost += cost
+            total_assigned_tasks += len(tasks_in_routes[k])
+            final_models[k] = model
+
+    print(f"总计分配了 {total_assigned_tasks} 个任务。")
+    if unassigned_tasks:
+        print(f"警告: {len(unassigned_tasks)} 个任务未能被任何车辆服务。")
+
+    return final_cost, True, final_models
 
 
 def main():
-    """主工作流"""
-    print("======================================================")
-    print("=== HDT两步走策略优化模型 (城市配送场景) ===")
-    print("======================================================")
-
+    print("=" * 60)
+    print("=== HDT两步走策略优化模型 (贪心插入+精确验证最终版) ===")
+    print("=" * 60)
     try:
         model_data = loader_final.create_urban_delivery_scenario()
         if model_data is None: return
-
         solver = SolverFactory(config.SOLVER_NAME)
-        solver.options.clear()  # 避免残留的求解器参数影响
-        if config.SOLVER_NAME.lower() == 'gurobi':
-            solver.options['MIPGap'] = config.MIP_GAP
-            solver.options['MIPFocus'] = config.MIP_FOCUS
-            solver.options['Heuristics'] = config.HEURISTICS
-            solver.options['Cuts'] = config.CUTS
-        elif config.SOLVER_NAME.lower() == 'ipopt':
-            solver.options['tol'] = 1e-6
-            solver.options['max_iter'] = 3000
-            solver.options['max_cpu_time'] = config.TIME_LIMIT_SECONDS
+        # 为快速验证设置参数
+        solver.options['TimeLimit'] = 15  # 验证一个路径通常很快
+        solver.options['MIPGap'] = 0.01
     except Exception as e:
         print(f"\n[致命错误] 环境初始化失败: {e}")
         return
 
-    vehicle_ids, task_ids = run_stage1(model_data, solver)
+    task_ids = list(model_data['tasks'].keys())
+    vehicle_ids = list(model_data['vehicles'].keys())
+
     if not vehicle_ids or not task_ids:
-        print("\n流程终止，因为第一阶段未能成功分配资源。")
+        print("\n流程终止，无车辆或任务。")
         return
 
-    # 调用全新的、更稳健的第二阶段函数
-    final_model, success = run_greedy_insertion_stage2(model_data, solver, vehicle_ids, task_ids)
+    final_cost, success, final_models = run_greedy_insertion_stage2(model_data, solver, vehicle_ids, task_ids)
 
-    if success and final_model:
+    if success:
         print("\n" + "=" * 50)
         print("=== POST ANALYSIS ===")
         print("=" * 50)
-        if final_model.objective.expr != 0:
-            print(f"所有车辆规划的总估算成本: {value(final_model.objective):.2f}")
-        else:
-            print("所有车辆规划的总估算成本: 0.00 (没有任务被成功分配)")
-        print("\n注意：由于采用启发式方法，无法绘制包含所有路径的全局路线图，且成本非最优。")
+        print(f"所有车辆规划的总成本: {final_cost:.2f}")
+        try:
+            # 只为第一个有路径的车辆绘制路线图
+            for k, model in final_models.items():
+                if model:
+                    post_analysis.plot_road_network_with_routes(model, model_data, filename=f"route_{k}.png")
+                    print(f"已为车辆 {k} 生成路径图。")
+        except Exception as e:
+            print(f"\n[警告] 后分析绘图失败: {e}")
         print("流程成功结束！")
     else:
         print("\n流程结束，但未产生可供分析的最终解。")
