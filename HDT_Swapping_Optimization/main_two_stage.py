@@ -66,6 +66,23 @@ def run_greedy_insertion_stage2(data, solver, vehicle_ids, task_ids):
     print("=" * 50)
 
     remaining_tasks_pool = set(task_ids)
+
+
+    # Ipopt 无法处理整数规划。若用户仍以 Ipopt 作为默认求解器，尝试切换到 CBC；
+    # 若系统缺少 CBC，则直接给出错误提示并终止第二阶段。
+    if config.SOLVER_NAME.lower() == 'ipopt':
+        try:
+            cbc_solver = SolverFactory('cbc')
+            if cbc_solver.available():
+                solver = cbc_solver
+                solver.options.clear()
+                print("[INFO] 使用 CBC 求解第二阶段整数模型 (Ipopt 不支持 MIP)。")
+            else:
+                print("[ERROR] Ipopt 无法求解含整数的第二阶段模型，且未找到 CBC 求解器。")
+                return None, False
+        except Exception:
+            print("[ERROR] 无法创建 CBC 求解器，第二阶段无法继续。")
+            return None, False
     final_aggregated_model = ConcreteModel()
     final_aggregated_model.objective = Objective(expr=0)
     all_assigned_tasks = set()

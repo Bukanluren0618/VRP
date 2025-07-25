@@ -13,7 +13,7 @@ import gurobipy as gp
 from gurobipy import GRB
 import pandas as pd
 import os
-import config as cfg  # 导入配置文件
+from src.common import config_final as config  # 导入统一的配置文件
 
 def load_and_aggregate_demand(data_folder_path: str) -> dict[int, int]:
     """
@@ -58,9 +58,11 @@ def solve_fleet_allocation(depot_tasks: dict[int, int]) -> dict[int, int] | None
         return None
 
     print("\n--- [阶段一：战术规划] 开始求解 ---")
-    print(f"总车队规模: {cfg.TOTAL_TRUCK_FLEET_SIZE} 辆")
+    print(f"总车队规模: {config.NUM_TRUCKS} 辆")
     print(f"各发车点任务量: {depot_tasks}")
-    print(f"核心假设: 每车能服务 {cfg.AVG_TASKS_PER_TRUCK} 个任务, 未服务任务惩罚为 {cfg.PENALTY_PER_UNSERVED_TASK}")
+    print(
+        f"核心假设: 每车能服务 {config.AVG_TASKS_PER_TRUCK} 个任务, 未服务任务惩罚为 {config.UNASSIGNED_TASK_PENALTY}"
+    )
 
     model = gp.Model("Tactical_Fleet_Allocation")
 
@@ -72,20 +74,30 @@ def solve_fleet_allocation(depot_tasks: dict[int, int]) -> dict[int, int] | None
 
     # --- 约束 ---
     # 1. 总车辆数约束：所有发车点分配的车辆总数不能超过公司总车队规模
-    model.addConstr(gp.quicksum(n_trucks[d] for d in depots) <= cfg.TOTAL_TRUCK_FLEET_SIZE, "Total_Truck_Constraint")
+    model.addConstr(
+        gp.quicksum(n_trucks[d] for d in depots) <= config.NUM_TRUCKS,
+        "Total_Truck_Constraint",
+    )
 
     # 2. 服务能力约束: 将车辆数与可完成的任务数关联起来
     for d in depots:
         required_tasks = depot_tasks.get(d, 0)
         # 未服务的任务 = max(0, 总任务数 - (分配的车辆数 * 每辆车的平均服务能力))
         # Gurobi中表达 max(0, ...) 的方式是 y >= x, y >= 0
-        model.addConstr(unserved_tasks[d] >= required_tasks - n_trucks[d] * cfg.AVG_TASKS_PER_TRUCK, f"Service_Capacity_{d}")
-
+        model.addConstr(
+            unserved_tasks[d] >= required_tasks - n_trucks[d] * config.AVG_TASKS_PER_TRUCK,
+            f"Service_Capacity_{d}",
+        )
     # --- 目标函数 ---
     # 估算的运营成本
-    operating_cost = gp.quicksum(n_trucks[d] * cfg.AVG_KM_PER_TRUCK_DAY * cfg.COST_PER_TRUCK_KM for d in depots)
+    operating_cost = gp.quicksum(
+        n_trucks[d] * config.MANPOWER_COST_PER_HOUR * config.MAX_WORKING_HOURS_PER_TRUCK
+        for d in depots
+    )
     # 任务失败的惩罚成本
-    penalty_cost = gp.quicksum(unserved_tasks[d] * cfg.PENALTY_PER_UNSERVED_TASK for d in depots)
+    penalty_cost = gp.quicksum(
+        unserved_tasks[d] * config.UNASSIGNED_TASK_PENALTY for d in depots
+    )
     # 总目标：最小化 (运营成本 + 惩罚成本)
     model.setObjective(operating_cost + penalty_cost, GRB.MINIMIZE)
 

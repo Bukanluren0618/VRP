@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from gurobipy import Model, GRB, GurobiError
 
 # 导入配置文件
-import config as cfg
+from src.common import config_final as config
 
 # 设置中文字体，解决绘图乱码问题
 matplotlib.rcParams['font.sans-serif'] = ['SimHei']
@@ -37,10 +37,14 @@ matplotlib.rcParams['axes.unicode_minus'] = False
 @dataclass
 class EnergyStation:
     node: int
-    swap_batteries: int = cfg.INITIAL_SWAP_BATTERIES
-    chargers: int = cfg.CHARGERS_PER_STATION
+    swap_batteries: int = int(
+        config.HDT_BATTERY_CAPACITY_KWH / config.HDT_MIN_SOC_KWH
+    )
+    chargers: int = int(
+        config.STATION_MAX_GRID_POWER_KW / config.EV_MAX_CHARGE_POWER_KW
+    )
     ev_served: int = 0
-    ev_lambda: float = cfg.EV_LAMBDA_PER_HOUR
+    ev_lambda: float = config.EV_AVG_CHARGE_DEMAND_KWH
 
     def serve_hdt(self, truck: 'Truck') -> bool:
         if self.swap_batteries > 0:
@@ -67,10 +71,10 @@ class ServiceTask:
 class Truck:
     id: int
     depot_node: int
-    capacity_kwh: float = cfg.TRUCK_CAPACITY_KWH
-    current_kwh: float = cfg.TRUCK_CAPACITY_KWH
-    consumption_rate: float = cfg.TRUCK_CONSUMPTION_RATE
-    max_payload: float = cfg.MAX_PAYLOAD_KG
+    capacity_kwh: float = config.HDT_BATTERY_CAPACITY_KWH
+    current_kwh: float = config.HDT_BATTERY_CAPACITY_KWH
+    consumption_rate: float = config.HDT_BASE_CONSUMPTION_KWH_PER_KM
+    max_payload: float = config.HDT_EMPTY_WEIGHT_TON * 1000
     tasks: list[ServiceTask] = field(default_factory=list)
     route: list[int] = field(default_factory=list)
     cargo_weight: float = 0.0
@@ -122,7 +126,9 @@ def generate_environment():
     """生成路网、发车点、换电站"""
     print("[阶段二] 正在生成虚拟城市路网环境...")
     while True:
-        G = nx.random_geometric_graph(cfg.NODE_COUNT, cfg.GRAPH_RADIUS, seed=cfg.SEED)
+        G = nx.random_geometric_graph(
+            config.CITY_NODE_COUNT, config.CITY_GRAPH_RADIUS, seed=42
+        )
         if nx.is_connected(G):
             break
     pos = nx.get_node_attributes(G, 'pos')
@@ -177,7 +183,7 @@ def plan_route_nearest(G: nx.Graph, start: int, tasks: list[ServiceTask]) -> lis
     while remaining:
         def cost(task: ServiceTask) -> float:
             dist = nx.shortest_path_length(G, curr, task.node, weight="distance")
-            return dist * (1 + cargo / cfg.MAX_PAYLOAD_KG)
+            return dist * (1 + cargo / (config.HDT_EMPTY_WEIGHT_TON * 1000))
         next_task = min(remaining, key=cost)
         route.append(next_task.node)
         curr = next_task.node
@@ -218,7 +224,7 @@ def solve_detailed_vrp(G, trucks, stations, constraint_skips=None):
     # f[k,i]: 卡车k是否在节点i进行换电
     f = model.addVars(K, S, vtype=GRB.BINARY, name='f') # 换电只能在换电站发生
     # e[k,i]: 卡车k到达节点i时的电量
-    e = model.addVars(K, V, lb=0, ub=cfg.TRUCK_CAPACITY_KWH, name='e')
+    e = model.addVars(K, V, lb=0, ub=config.HDT_BATTERY_CAPACITY_KWH, name='e')
 
     # --- 目标函数 ---
     model.setObjective(
@@ -250,19 +256,26 @@ def solve_detailed_vrp(G, trucks, stations, constraint_skips=None):
 
     def add_energy_constraints():
         print("  - 添加能耗与电量约束")
-        M = cfg.TRUCK_CAPACITY_KWH * 2 # 一个足够大的数
+        M = config.HDT_BATTERY_CAPACITY_KWH * 2  # 一个足够大的数
         for k in K:
             # 初始电量
-            model.addConstr(e[k, D[k]] == cfg.TRUCK_CAPACITY_KWH, f"init_soc_{k}")
+            model.addConstr(
+                e[k, D[k]] == config.HDT_BATTERY_CAPACITY_KWH, f"init_soc_{k}"
+            )
             for i in V:
                 for j in V:
                     if i != j:
                         # 核心电量消耗约束: e[j] <= e[i] - cost + M*(1-x[i,j])
-                        cost = dist[i][j] * cfg.TRUCK_CONSUMPTION_RATE # 简化能耗模型
+                        cost = dist[i][j] * config.HDT_BASE_CONSUMPTION_KWH_PER_KM  # 简化能耗模型
                         # 换电影响
-                        swap_amount = cfg.TRUCK_CAPACITY_KWH * f[k,i] if i in S else 0
+                        swap_amount = (
+                            config.HDT_BATTERY_CAPACITY_KWH * f[k, i] if i in S else 0
+                        )
                         # 综合约束
-                        model.addConstr(e[k, j] <= e[k, i] - cost + swap_amount + M * (1 - x[k,i,j]), f"soc_cons_{k}_{i}_{j}")
+                        model.addConstr(
+                            e[k, i] >= config.HDT_MIN_SOC_KWH,
+                            f"reserve_soc_{k}_{i}",
+                        )
             # 安全电量约束
             for i in V:
                 model.addConstr(e[k, i] >= cfg.TRUCK_CAPACITY_KWH * cfg.TRUCK_RESERVE_SOC, f"reserve_soc_{k}_{i}")
@@ -286,7 +299,7 @@ def solve_detailed_vrp(G, trucks, stations, constraint_skips=None):
 
     # --- 求解 ---
     try:
-        model.setParam('TimeLimit', cfg.GUROBI_TIME_LIMIT)
+        model.setParam('TimeLimit', config.TIME_LIMIT_SECONDS)
         model.optimize()
         if model.status == GRB.OPTIMAL:
             print("--- [阶段二] Gurobi 求解成功，找到最优解！ ---")
