@@ -69,7 +69,6 @@ def run_greedy_insertion_stage2(data, solver, vehicle_ids, task_ids):
 
 
     # Ipopt 无法处理整数规划。若用户仍以 Ipopt 作为默认求解器，尝试切换到 CBC；
-    # 若系统缺少 CBC，则直接给出错误提示并终止第二阶段。
     if config.SOLVER_NAME.lower() == 'ipopt':
         try:
             cbc_solver = SolverFactory('cbc')

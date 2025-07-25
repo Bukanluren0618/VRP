@@ -98,7 +98,7 @@ def solve_fleet_allocation(depot_tasks: dict[int, int]) -> dict[int, int] | None
     penalty_cost = gp.quicksum(
         unserved_tasks[d] * config.UNASSIGNED_TASK_PENALTY for d in depots
     )
-    # 总目标：最小化 (运营成本 + 惩罚成本)
+    # 总目标：最小化 (运营成本 + 惩罚成本)w
     model.setObjective(operating_cost + penalty_cost, GRB.MINIMIZE)
 
     # --- 求解 ---
