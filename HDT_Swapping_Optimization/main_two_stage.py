@@ -38,6 +38,7 @@ def compute_gurobi_iis(model, filename="model_iis.ilp"):
 
 
 
+
 def run_stage1(data, solver):
     """第一阶段：战术规划，筛选出值得服务的任务。"""
     print("\n" + "=" * 50)
@@ -148,6 +149,10 @@ def run_greedy_insertion_stage2(data, solver, vehicle_ids, task_ids):
                 solver.options.clear()  # 重置求解器参数
                 if config.SOLVER_NAME.lower() == 'gurobi':
                     solver.options['TimeLimit'] = config.TIME_LIMIT_SECONDS
+                    solver.options['MIPGap'] = config.MIP_GAP
+                    solver.options['MIPFocus'] = config.MIP_FOCUS
+                    solver.options['Heuristics'] = config.HEURISTICS
+                    solver.options['Cuts'] = config.CUTS
                 elif config.SOLVER_NAME.lower() == 'ipopt':
                     solver.options['max_cpu_time'] = config.TIME_LIMIT_SECONDS
                 results = solver.solve(model_single_insertion, tee=True)
@@ -237,9 +242,10 @@ def main():
         solver = SolverFactory(config.SOLVER_NAME)
         solver.options.clear()  # 避免残留的求解器参数影响
         if config.SOLVER_NAME.lower() == 'gurobi':
-            solver.options['MIPGap'] = 0.05
-            solver.options['MIPFocus'] = 1
-            solver.options['Heuristics'] = 0.8  # 稍微调高启发式，帮助快速找到解
+            solver.options['MIPGap'] = config.MIP_GAP
+            solver.options['MIPFocus'] = config.MIP_FOCUS
+            solver.options['Heuristics'] = config.HEURISTICS
+            solver.options['Cuts'] = config.CUTS
         elif config.SOLVER_NAME.lower() == 'ipopt':
             solver.options['tol'] = 1e-6
             solver.options['max_iter'] = 3000

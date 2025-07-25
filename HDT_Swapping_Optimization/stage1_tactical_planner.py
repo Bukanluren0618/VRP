@@ -102,6 +102,11 @@ def solve_fleet_allocation(depot_tasks: dict[int, int]) -> dict[int, int] | None
     model.setObjective(operating_cost + penalty_cost, GRB.MINIMIZE)
 
     # --- 求解 ---
+    model.setParam('TimeLimit', config.TIME_LIMIT_SECONDS)
+    model.setParam('MIPGap', config.MIP_GAP)
+    model.setParam('MIPFocus', config.MIP_FOCUS)
+    model.setParam('Cuts', config.CUTS)
+    model.setParam('Heuristics', config.HEURISTICS)
     model.optimize()
 
     # --- 提取并返回结果 ---
@@ -124,4 +129,5 @@ def solve_fleet_allocation(depot_tasks: dict[int, int]) -> dict[int, int] | None
             print("IIS written to stage1_model.ilp")
         else:
             print(f"--- [阶段一] 求解失败！模型状态码: {model.status}")
+
         return None
