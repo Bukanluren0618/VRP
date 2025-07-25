@@ -24,8 +24,11 @@ def run_stage1(data, solver):
     model_s1 = stage1_tactical.create_tactical_model(data)
     results_s1 = solver.solve(model_s1, tee=False)
 
-    if (results_s1.solver.status == 'ok') and (
-            results_s1.solver.termination_condition in ['optimal', 'locallyOptimal']):
+    if (
+        results_s1.solver.status == 'ok'
+        and results_s1.solver.termination_condition
+        in (TerminationCondition.optimal, TerminationCondition.locallyOptimal)
+    ):
         print("[S1-SUCCESS] 战术规划求解成功！")
         allocated_trucks = sum(math.ceil(value(model_s1.n_trucks[d])) for d in model_s1.DEPOTS)
         served_tasks = [t for t in model_s1.TASKS if value(model_s1.is_task_served[t]) > 0.5]
@@ -124,12 +127,23 @@ def run_greedy_insertion_stage2(data, solver, vehicle_ids, task_ids):
                 elif config.SOLVER_NAME.lower() == 'ipopt':
                     solver.options['max_cpu_time'] = 20
                 results = solver.solve(model_single_insertion, tee=False)
-                if results.solver.termination_condition not in ['optimal', 'locallyOptimal']:
+                if results.solver.termination_condition not in (
+                    TerminationCondition.optimal,
+                    TerminationCondition.locallyOptimal,
+                ):
                     print(
                         f"    -> 候选任务 {candidate_task} 求解器未找到解: status={results.solver.status}, tc={results.solver.termination_condition}"
                     )
-                    if results.solver.termination_condition == TerminationCondition.infeasible and config.SOLVER_NAME.lower() == 'gurobi':
-                        print("    -> 执行 Gurobi IIS 分析以定位冲突约束...")
+                    if hasattr(results.solver, 'message') and results.solver.message:
+                        print(f"       Solver message: {results.solver.message}")
+                    if (
+                        config.SOLVER_NAME.lower() == 'gurobi'
+                        and results.solver.status in (SolverStatus.error, SolverStatus.aborted)
+                    ) or results.solver.termination_condition in (
+                        TerminationCondition.infeasible,
+                        TerminationCondition.infeasibleOrUnbounded,
+                    ):
+                        print("    -> 尝试执行 Gurobi IIS 分析以定位冲突约束...")
                         try:
                             iis_solver = SolverFactory('gurobi_persistent')
                             iis_solver.set_instance(model_single_insertion)
