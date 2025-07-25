@@ -15,14 +15,20 @@ def create_operational_model(data, vehicle_ids, task_ids, deactivated_constraint
     model = ConcreteModel(name="Operational_VRP_Model")
 
     # --- Sets & Params ---
-    model.LOCATIONS = Set(initialize=data['locations'].keys())
+    # model.LOCATIONS = Set(initialize=data['locations'].keys())
     model.VEHICLES = Set(initialize=vehicle_ids)
     model.TASKS = Set(initialize=task_ids)
-    model.CUSTOMERS = Set(initialize=[data['tasks'][t]['delivery_to'] for t in model.TASKS if t in task_ids])
+    # model.CUSTOMERS = Set(initialize=[data['tasks'][t]['delivery_to'] for t in model.TASKS if t in task_ids])
+    # Only include customer nodes actually associated with the selected tasks
+    customer_nodes = sorted({data['tasks'][t]['delivery_to'] for t in task_ids})
+    model.CUSTOMERS = Set(initialize=customer_nodes)
     model.STATIONS = Set(initialize=data['stations'].keys())
     model.TIME = Set(initialize=data['time_steps'])
     depot_ids = list({v['depot_id'] for k, v in data['vehicles'].items() if k in vehicle_ids})
     model.DEPOT = Set(initialize=depot_ids)
+    # Restrict the location set to just depots, relevant customers and all stations
+    location_subset = sorted(set(depot_ids) | set(customer_nodes) | set(data['stations'].keys()))
+    model.LOCATIONS = Set(initialize=location_subset)
     model.NODES = model.LOCATIONS - model.DEPOT
     customer_demands = {data['tasks'][t]['delivery_to']: data['tasks'][t]['demand'] for t in model.TASKS}
 
