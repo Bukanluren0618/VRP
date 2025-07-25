@@ -17,6 +17,22 @@ from src.modeling import stage1_tactical
 from src.modeling import model_final as stage2_model_builder
 from src.analysis import post_analysis
 
+def compute_gurobi_iis(model, filename="model_iis.ilp"):
+    """Run Gurobi IIS analysis and print conflicting constraints."""
+    try:
+        solver = SolverFactory("gurobi_persistent")
+        solver.set_instance(model)
+        solver._solver_model.computeIIS()
+        solver._solver_model.write(filename)
+        for constr in solver._solver_model.getConstrs():
+            if constr.IISConstr:
+                print(f"       IIS约束: {constr.ConstrName}")
+        print(f"    -> IIS written to {filename}")
+    except Exception as e:
+        print(f"       IIS分析失败: {e}")
+
+
+
 
 def run_stage1(data, solver):
     """第一阶段：战术规划，筛选出值得服务的任务。"""
@@ -31,6 +47,8 @@ def run_stage1(data, solver):
         and results_s1.solver.termination_condition
         in (TerminationCondition.optimal, TerminationCondition.locallyOptimal)
     ):
+
+
         print("[S1-SUCCESS] 战术规划求解成功！")
         allocated_trucks = sum(math.ceil(value(model_s1.n_trucks[d])) for d in model_s1.DEPOTS)
         served_tasks = [t for t in model_s1.TASKS if value(model_s1.is_task_served[t]) > 0.5]
@@ -139,23 +157,14 @@ def run_greedy_insertion_stage2(data, solver, vehicle_ids, task_ids):
                     if hasattr(results.solver, 'message') and results.solver.message:
                         print(f"       Solver message: {results.solver.message}")
                     if (
-                            config.SOLVER_NAME.lower() == 'gurobi'
+                            config.SOLVER_NAME.lower() == "gurobi"
                             and results.solver.status in (SolverStatus.error, SolverStatus.aborted)
                     ) or results.solver.termination_condition in (
                             TerminationCondition.infeasible,
                             TerminationCondition.infeasibleOrUnbounded,
                     ):
                         print("    -> 尝试执行 Gurobi IIS 分析以定位冲突约束...")
-                        try:
-                            iis_solver = SolverFactory('gurobi_persistent')
-                            iis_solver.set_instance(model_single_insertion)
-                            iis_solver._solver_model.computeIIS()
-                            iis_solver._solver_model.write('stage2_iis.ilp')
-                            for constr in iis_solver._solver_model.getConstrs():
-                                if constr.IISConstr:
-                                    print(f"       IIS约束: {constr.ConstrName}")
-                        except Exception as e:
-                            print(f"       IIS分析失败: {e}")
+                        compute_gurobi_iis(model_single_insertion, "stage2_iis.ilp")
 
                 # 检查这个插入是否可行
                 try:
