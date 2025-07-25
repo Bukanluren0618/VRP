@@ -1,7 +1,7 @@
-C:\Users\DELL\.conda\envs\pytorch38-gpu\python.exe "F:\1\Coupling optimization\HDT_Swapping_Optimization\main_two_stage.py" 
-============================================================
-=== HDT两步走策略优化模型 (单车极限测试版) ===
-============================================================
+C:\PY3\anaconda3\envs\py310vrp\python.exe C:\PY3\pythonProject3\HDT_Swapping_Optimization0721\HDT_Swapping_Optimization\main_two_stage.py
+======================================================
+=== HDT两步走策略优化模型 (城市配送场景) ===
+======================================================
 ==============================
 开始创建全新的【城市配送】场景...
 正在创建随机城市路网...
@@ -23,83 +23,468 @@ C:\Users\DELL\.conda\envs\pytorch38-gpu\python.exe "F:\1\Coupling optimization\H
   -> 决策: 服务 4 个任务。
 
 ==================================================
-=== RUNNING STAGE 2: SINGLE VEHICLE EXECUTION ===
+=== RUNNING STAGE 2: GREEDY INSERTION EXECUTION ===
 ==================================================
---- [极限测试] 正在为车辆 HDT_1 规划 4 个任务 ---
-开始构建【第二阶段：运营执行 - 全功能弹性版】模型...
+
+--- [规划第 1/1 辆车: HDT_1] ---
+  -> 开始新一轮插入尝试，当前已分配 0 个任务，剩余任务池 4 个。
+任务尝试 HDT_1:   0%|          | 0/4 [00:00<?, ?it/s]开始构建【第二阶段：运营执行 - 标准VRP逻辑版】模型...
   -> 规划车辆: ['HDT_1']
-  -> 规划任务: ['Task_1', 'Task_2', 'Task_3', 'Task_4']
-【第二阶段 - 全功能弹性版】模型构建完成。
-Read LP format model from file C:\Users\DELL\AppData\Local\Temp\tmp_t4e9kn2.pyomo.lp
-Reading time = 0.21 seconds
-x1: 43075 rows, 9514 columns, 173013 nonzeros
-Set parameter MIPGap to value 0.1
+  -> 规划任务: ['Task_2']
+【第二阶段 - 标准VRP逻辑版】模型构建完成。
+Read LP format model from file C:\Users\MSI-NB\AppData\Local\Temp\tmpwv6545d0.pyomo.lp
+Reading time = 0.02 seconds
+x1: 775 rows, 1186 columns, 3378 nonzeros
+Set parameter TimeLimit to value 200
+Set parameter MIPGap to value 0.05
 Set parameter MIPFocus to value 1
 Set parameter Heuristics to value 0.8
-Set parameter TimeLimit to value 300
-Gurobi Optimizer version 11.0.3 build v11.0.3rc0 (win64 - Windows 11+.0 (26100.2))
+Set parameter Cuts to value 2
+Gurobi Optimizer version 10.0.1 build v10.0.1rc0 (win64)
 
-CPU model: Intel(R) Xeon(R) Silver 4210R CPU @ 2.40GHz, instruction set [SSE2|AVX|AVX2|AVX512]
-Thread count: 10 physical cores, 20 logical processors, using up to 20 threads
+CPU model: 13th Gen Intel(R) Core(TM) i9-13980HX, instruction set [SSE2|AVX|AVX2]
+Thread count: 24 physical cores, 32 logical processors, using up to 32 threads
 
-Optimize a model with 43075 rows, 9514 columns and 173013 nonzeros
-Model fingerprint: 0x2376cee2
-Model has 1880 quadratic constraints
-Variable types: 480 continuous, 9034 integer (9034 binary)
+Optimize a model with 775 rows, 1186 columns and 3378 nonzeros
+Model fingerprint: 0x2bcc8b6c
+Variable types: 1032 continuous, 154 integer (154 binary)
 Coefficient statistics:
-  Matrix range     [1e-06, 4e+02]
-  QMatrix range    [1e+00, 1e+00]
-  QLMatrix range   [1e-06, 4e+02]
-  Objective range  [5e+01, 8e+06]
+  Matrix range     [1e-06, 1e+03]
+  Objective range  [2e-01, 2e+06]
   Bounds range     [1e+00, 4e+02]
-  RHS range        [1e+00, 4e+02]
-  QRHS range       [3e+02, 4e+02]
-Presolve added 3078 rows and 0 columns
-Presolve removed 0 rows and 193 columns
-Presolve time: 0.99s
-Presolved: 46153 rows, 9321 columns, 217242 nonzeros
-Variable types: 474 continuous, 8847 integer (8846 binary)
-Found heuristic solution: objective 8000000.0000
+  RHS range        [1e+00, 1e+03]
+Found heuristic solution: objective 2000000.0000
+Presolve removed 106 rows and 988 columns
+Presolve time: 0.01s
+Presolved: 669 rows, 198 columns, 3140 nonzeros
+Variable types: 67 continuous, 131 integer (131 binary)
 
-Root relaxation: objective 0.000000e+00, 1028 iterations, 0.26 seconds (0.25 work units)
+Root relaxation: objective 0.000000e+00, 41 iterations, 0.00 seconds (0.00 work units)
 
     Nodes    |    Current Node    |     Objective Bounds      |     Work
  Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
 
-     0     0    0.00000    0    7 8000000.00    0.00000   100%     -    2s
-     0     0    0.00000    0   11 8000000.00    0.00000   100%     -    3s
-     0     0    0.00000    0    8 8000000.00    0.00000   100%     -    8s
-     0     0    0.00000    0    8 8000000.00    0.00000   100%     -   10s
-     0     0    0.00000    0   12 8000000.00    0.00000   100%     -   10s
-     0     0    0.00000    0    7 8000000.00    0.00000   100%     -   14s
-     0     0    0.00000    0    7 8000000.00    0.00000   100%     -   15s
-     0     0    0.00000    0    7 8000000.00    0.00000   100%     -   15s
-     0     2    0.00000    0    7 8000000.00    0.00000   100%     -   19s
-     1     4    0.00000    1   15 8000000.00    0.00000   100%   133   27s
-    35    46    0.00000    6   47 8000000.00    0.00000   100%  46.9   38s
-    45    56    0.00000    7   57 8000000.00    0.00000   100%  46.3   40s
-    85   121    0.00000   11   38 8000000.00    0.00000   100%   247   50s
-   120   283    0.00000   13   50 8000000.00    0.00000   100%   244   63s
-   282   348    0.00000   25   16 8000000.00    0.00000   100%   248   81s
-   347   747    0.00000   29   32 8000000.00    0.00000   100%   236  107s
-   746   796    0.00000   57   35 8000000.00    0.00000   100%   281  162s
-   795  1350    0.00000   58   55 8000000.00    0.00000   100%   277  214s
-  1349  1742    0.00000  111   39 8000000.00    0.00000   100%   307  257s
-  1741  2785    0.00000  151   38 8000000.00    0.00000   100%   321  300s
+     0     0    0.00000    0    6 2000000.00    0.00000   100%     -    0s
+     0     0    0.00000    0    6 2000000.00    0.00000   100%     -    0s
+     0     0    0.00000    0    6 2000000.00    0.00000   100%     -    0s
+     0     0    0.00000    0    6 2000000.00    0.00000   100%     -    0s
+     0     0    0.00000    0    6 2000000.00    0.00000   100%     -    0s
+     0     0    0.00000    0    6 2000000.00    0.00000   100%     -    0s
+     0     0    0.00000    0    6 2000000.00    0.00000   100%     -    0s
+     0     0    0.00000    0    6 2000000.00    0.00000   100%     -    0s
+     0     0    0.00000    0    6 2000000.00    0.00000   100%     -    0s
+     0     0    0.00000    0    6 2000000.00    0.00000   100%     -    0s
+     0     2    0.00000    0    6 2000000.00    0.00000   100%     -    0s
+  4009  1071    0.00000   23   10 2000000.00    0.00000   100%   7.8    5s
+ 13786  1880    0.00000   23    9 2000000.00    0.00000   100%   8.4   10s
+ 20585  1590 infeasible   29      2000000.00    0.00000   100%   4.2   15s
+ 26973  2707 infeasible   33      2000000.00    0.00000   100%   6.7   20s
+ 33384  3974 infeasible   26      2000000.00    0.00000   100%   8.4   25s
+ 46778  4253    0.00000   26    8 2000000.00    0.00000   100%  10.3   31s
+ 50694  4688    0.00000   24    9 2000000.00    0.00000   100%  10.7   36s
+ 55676  5397    0.00000   25    4 2000000.00    0.00000   100%  11.1   40s
+ 64970  5771 infeasible   34      2000000.00    0.00000   100%  11.7   46s
+ 65080  7554 infeasible   36      2000000.00    0.00000   100%  11.7   56s
+ 97112  7781    0.00000   29    6 2000000.00    0.00000   100%  13.0   74s
+ 101728  7978    0.00000   30    8 2000000.00    0.00000   100%  13.1   79s
+ 104796  7977 infeasible   38      2000000.00    0.00000   100%  13.1   85s
+ 104891  8658    0.00000   28   10 2000000.00    0.00000   100%  13.1   90s
+ 117306  9328    0.00000   28    6 2000000.00    0.00000   100%  13.4   99s
+ 123025  9419 infeasible   42      2000000.00    0.00000   100%  13.5  102s
+ 126556  9742 infeasible   34      2000000.00    0.00000   100%  13.5  107s
+ 132383  9903    0.00000   38   11 2000000.00    0.00000   100%  13.6  111s
+ 134853 10143    0.00000   27    4 2000000.00    0.00000   100%  13.7  115s
+ 144766 10513    0.00000   32    8 2000000.00    0.00000   100%  13.8  123s
+ 149988 10674    0.00000   30    4 2000000.00    0.00000   100%  13.9  127s
+ 154168 10804 infeasible   34      2000000.00    0.00000   100%  13.9  131s
+ 157045 10970    0.00000   38    8 2000000.00    0.00000   100%  14.0  135s
+ 165015 11209    0.00000   39   15 2000000.00    0.00000   100%  14.0  144s
+ 171932 11392 infeasible   36      2000000.00    0.00000   100%  14.1  148s
+ 178028 11384 infeasible   30      2000000.00    0.00000   100%  14.2  153s
+ 178100 11410    0.00000   29    6 2000000.00    0.00000   100%  14.2  157s
+ 183411 11505 infeasible   39      2000000.00    0.00000   100%  14.2  160s
+ 186771 11501    0.00000   30    9 2000000.00    0.00000   100%  14.2  165s
+ 194885 11524 infeasible   35      2000000.00    0.00000   100%  14.3  172s
+ 200752 11530 infeasible   40      2000000.00    0.00000   100%  14.4  175s
+ 204288 11475 infeasible   43      2000000.00    0.00000   100%  14.5  180s
+ 209819 11485 infeasible   43      2000000.00    0.00000   100%  14.5  185s
+ 215363 11465    0.00000   32    6 2000000.00    0.00000   100%  14.6  192s
+ 219076 11523    0.00000   42    8 2000000.00    0.00000   100%  14.6  197s
+ 224903 11515    0.00000   46    8 2000000.00    0.00000   100%  14.7  200s
 
 Cutting planes:
-  Implied bound: 3
-  MIR: 9
-  Flow cover: 2
-  RLT: 1
-  Relax-and-lift: 1
+  Learned: 9
+  Gomory: 5
+  Lift-and-project: 1
+  Implied bound: 28
+  MIR: 34
+  Flow cover: 480
+  Inf proof: 492
+  RLT: 6
 
-Explored 2786 nodes (915467 simplex iterations) in 300.41 seconds (339.85 work units)
-Thread count was 20 (of 20 available processors)
+Explored 226116 nodes (3442225 simplex iterations) in 200.53 seconds (29.45 work units)
+Thread count was 32 (of 32 available processors)
 
-Solution count 1: 8e+06 
+Solution count 1: 2e+06
 
 Time limit reached
-Best objective 8.000000000000e+06, best bound 0.000000000000e+00, gap 100.0000%
+Best objective 2.000000000000e+06, best bound 0.000000000000e+00, gap 100.0000%
 WARNING: Loading a SolverResults object with an 'aborted' status, but
 containing a solution
+    -> 候选任务 Task_2 求解器未找到解: status=aborted, tc=maxTimeLimit
+       Solver message: Optimization terminated because the time expended exceeded the value specified in the TimeLimit parameter.
+    -> 尝试执行 Gurobi IIS 分析以定位冲突约束...
+IIS computation: initial model status unknown, solving to determine model status
+Found heuristic solution: objective 2000000.0000
+
+Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
+Thread count was 1 (of 32 available processors)
+
+Solution count 1: 2e+06
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 2.000000000000e+06, best bound 2.000000000000e+06, gap 0.0000%
+IIS runtime: 0.01 seconds (0.00 work units)
+       IIS分析失败: Cannot compute IIS on a feasible model
+开始构建【第二阶段：运营执行 - 标准VRP逻辑版】模型...
+  -> 规划车辆: ['HDT_1']
+  -> 规划任务: ['Task_1']
+任务尝试 HDT_1:  25%|██▌       | 1/4 [03:21<10:04, 201.49s/it]【第二阶段 - 标准VRP逻辑版】模型构建完成。
+Read LP format model from file C:\Users\MSI-NB\AppData\Local\Temp\tmpa3l2phom.pyomo.lp
+Reading time = 0.02 seconds
+x1: 775 rows, 1186 columns, 3378 nonzeros
+Set parameter TimeLimit to value 200
+Set parameter MIPGap to value 0.05
+Set parameter MIPFocus to value 1
+Set parameter Heuristics to value 0.8
+Set parameter Cuts to value 2
+Gurobi Optimizer version 10.0.1 build v10.0.1rc0 (win64)
+
+CPU model: 13th Gen Intel(R) Core(TM) i9-13980HX, instruction set [SSE2|AVX|AVX2]
+Thread count: 24 physical cores, 32 logical processors, using up to 32 threads
+
+Optimize a model with 775 rows, 1186 columns and 3378 nonzeros
+Model fingerprint: 0x39e98da2
+Variable types: 1032 continuous, 154 integer (154 binary)
+Coefficient statistics:
+  Matrix range     [7e-05, 1e+03]
+  Objective range  [2e-01, 2e+06]
+  Bounds range     [1e+00, 4e+02]
+  RHS range        [1e+00, 1e+03]
+Found heuristic solution: objective 2000000.0000
+Presolve removed 106 rows and 988 columns
+Presolve time: 0.02s
+Presolved: 669 rows, 198 columns, 3140 nonzeros
+Variable types: 67 continuous, 131 integer (131 binary)
+
+Root relaxation: objective 0.000000e+00, 51 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0    6 2000000.00    0.00000   100%     -    0s
+     0     0    0.00000    0    9 2000000.00    0.00000   100%     -    0s
+     0     0    0.00000    0    6 2000000.00    0.00000   100%     -    0s
+     0     0    0.00000    0    6 2000000.00    0.00000   100%     -    0s
+     0     0    0.00000    0    6 2000000.00    0.00000   100%     -    0s
+     0     0    0.00000    0    6 2000000.00    0.00000   100%     -    0s
+     0     0    0.00000    0    8 2000000.00    0.00000   100%     -    0s
+     0     0    0.00000    0    9 2000000.00    0.00000   100%     -    0s
+     0     0    0.00000    0    9 2000000.00    0.00000   100%     -    0s
+     0     0    0.00000    0    9 2000000.00    0.00000   100%     -    0s
+     0     2    0.00000    0    9 2000000.00    0.00000   100%     -    0s
+  1419   774    0.00000   17   11 2000000.00    0.00000   100%   8.4    5s
+  6873  2048    0.00000   15    4 2000000.00    0.00000   100%   7.9   10s
+ 12428  2790    0.00000   21   11 2000000.00    0.00000   100%   0.3   15s
+ 19566  2232    0.00000   34    4 2000000.00    0.00000   100%   5.2   20s
+ 34616  3799 infeasible   34      2000000.00    0.00000   100%   9.9   25s
+ 46816  4683 infeasible   34      2000000.00    0.00000   100%  11.5   33s
+ 52079  5039    0.00000   28    4 2000000.00    0.00000   100%  12.0   37s
+ 56877  5426    0.00000   35   10 2000000.00    0.00000   100%  12.3   40s
+ 61450  6431 infeasible   33      2000000.00    0.00000   100%  12.6   51s
+ 80469  6431    0.00000   45   13 2000000.00    0.00000   100%  13.6   55s
+ 93482  6781    0.00000   38    4 2000000.00    0.00000   100%  14.0   65s
+ 97533  6991 infeasible   32      2000000.00    0.00000   100%  14.1   70s
+ 101192  7210    0.00000   40    6 2000000.00    0.00000   100%  14.1   76s
+ 108813  7394    0.00000   41   13 2000000.00    0.00000   100%  14.3   81s
+ 111653  7552    0.00000   29    8 2000000.00    0.00000   100%  14.3   86s
+ 117361  7743    0.00000   31   14 2000000.00    0.00000   100%  14.4   90s
+ 120700  7959    0.00000   36   11 2000000.00    0.00000   100%  14.5   96s
+ 126893  8289 infeasible   37      2000000.00    0.00000   100%  14.5  101s
+ 132262  8291    0.00000   37   11 2000000.00    0.00000   100%  14.6  106s
+ 132324  8555    0.00000   38    8 2000000.00    0.00000   100%  14.6  110s
+ 140331  8817 infeasible   40      2000000.00    0.00000   100%  14.7  117s
+ 145939  8994    0.00000   43    6 2000000.00    0.00000   100%  14.7  121s
+ 149567  9195    0.00000   40    4 2000000.00    0.00000   100%  14.8  126s
+ 158843  9419 infeasible   47      2000000.00    0.00000   100%  14.8  134s
+ 164692  9419    0.00000   46   11 2000000.00    0.00000   100%  14.9  139s
+ 164756  9466    0.00000   47   11 2000000.00    0.00000   100%  14.9  142s
+ 168555  9518    0.00000   34    9 2000000.00    0.00000   100%  14.9  146s
+ 171879  9695 infeasible   44      2000000.00    0.00000   100%  14.9  150s
+ 181773  9863    0.00000   50    4 2000000.00    0.00000   100%  15.0  159s
+ 187506  9969 infeasible   44      2000000.00    0.00000   100%  15.0  164s
+ 191108  9952    0.00000   40   12 2000000.00    0.00000   100%  15.0  170s
+ 197385  9958    3.97554   50    9 2000000.00    0.00000   100%  15.1  175s
+ 201190 10167 infeasible   42      2000000.00    0.00000   100%  15.1  182s
+ 204229 10196    0.00000   44    9 2000000.00    0.00000   100%  15.1  186s
+ 210403 10259    0.00000   47   11 2000000.00    0.00000   100%  15.1  190s
+ 218874 10330    0.00000   33   14 2000000.00    0.00000   100%  15.2  198s
+ 222156 10324    0.00000   30    6 2000000.00    0.00000   100%  15.2  200s
+
+Cutting planes:
+  Learned: 13
+  Gomory: 7
+  Lift-and-project: 2
+  Implied bound: 30
+  MIR: 13
+  Flow cover: 335
+  Inf proof: 623
+  RLT: 3
+  Relax-and-lift: 1
+
+Explored 222226 nodes (3467547 simplex iterations) in 200.13 seconds (26.56 work units)
+Thread count was 32 (of 32 available processors)
+
+Solution count 1: 2e+06
+
+Time limit reached
+Best objective 2.000000000000e+06, best bound 0.000000000000e+00, gap 100.0000%
+WARNING: Loading a SolverResults object with an 'aborted' status, but
+containing a solution
+    -> 候选任务 Task_1 求解器未找到解: status=aborted, tc=maxTimeLimit
+       Solver message: Optimization terminated because the time expended exceeded the value specified in the TimeLimit parameter.
+    -> 尝试执行 Gurobi IIS 分析以定位冲突约束...
+IIS computation: initial model status unknown, solving to determine model status
+Found heuristic solution: objective 2000000.0000
+
+Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
+Thread count was 1 (of 32 available processors)
+
+Solution count 1: 2e+06
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 2.000000000000e+06, best bound 2.000000000000e+06, gap 0.0000%
+IIS runtime: 0.00 seconds (0.00 work units)
+       IIS分析失败: Cannot compute IIS on a feasible model
+任务尝试 HDT_1:  50%|█████     | 2/4 [06:42<06:42, 201.08s/it]开始构建【第二阶段：运营执行 - 标准VRP逻辑版】模型...
+  -> 规划车辆: ['HDT_1']
+  -> 规划任务: ['Task_3']
+【第二阶段 - 标准VRP逻辑版】模型构建完成。
+Read LP format model from file C:\Users\MSI-NB\AppData\Local\Temp\tmp74ihemtn.pyomo.lp
+Reading time = 0.02 seconds
+x1: 775 rows, 1186 columns, 3378 nonzeros
+Set parameter TimeLimit to value 200
+Set parameter MIPGap to value 0.05
+Set parameter MIPFocus to value 1
+Set parameter Heuristics to value 0.8
+Set parameter Cuts to value 2
+Gurobi Optimizer version 10.0.1 build v10.0.1rc0 (win64)
+
+CPU model: 13th Gen Intel(R) Core(TM) i9-13980HX, instruction set [SSE2|AVX|AVX2]
+Thread count: 24 physical cores, 32 logical processors, using up to 32 threads
+
+Optimize a model with 775 rows, 1186 columns and 3378 nonzeros
+Model fingerprint: 0xaf75febe
+Variable types: 1032 continuous, 154 integer (154 binary)
+Coefficient statistics:
+  Matrix range     [8e-05, 1e+03]
+  Objective range  [2e-01, 2e+06]
+  Bounds range     [1e+00, 4e+02]
+  RHS range        [1e+00, 1e+03]
+Found heuristic solution: objective 2000000.0000
+Presolve removed 106 rows and 988 columns
+Presolve time: 0.02s
+Presolved: 669 rows, 198 columns, 3140 nonzeros
+Variable types: 67 continuous, 131 integer (131 binary)
+
+Root relaxation: objective 0.000000e+00, 52 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0    6 2000000.00    0.00000   100%     -    0s
+     0     0    0.00000    0    8 2000000.00    0.00000   100%     -    0s
+     0     0    0.00000    0    6 2000000.00    0.00000   100%     -    0s
+     0     0    0.00000    0    8 2000000.00    0.00000   100%     -    0s
+     0     0    0.00000    0    4 2000000.00    0.00000   100%     -    0s
+     0     0    0.00000    0    6 2000000.00    0.00000   100%     -    0s
+     0     0    0.00000    0    9 2000000.00    0.00000   100%     -    0s
+     0     2    0.00000    0    9 2000000.00    0.00000   100%     -    0s
+  2884  1057    0.00000   31    4 2000000.00    0.00000   100%   8.9    5s
+ 11045  2257    0.00000   31    6 2000000.00    0.00000   100%   8.6   10s
+ 14433  2719    0.00000   36   10 2000000.00    0.00000   100%   2.8   15s
+ 27474  3381    0.00000   38    6 2000000.00    0.00000   100%   8.8   20s
+ 30849  4591    0.00000   28    4 2000000.00    0.00000   100%   9.6   25s
+ 42497  4581 infeasible   35      2000000.00    0.00000   100%  11.5   30s
+ 45932  4999    0.00000   35   11 2000000.00    0.00000   100%  11.9   35s
+ 52999  5297 infeasible   45      2000000.00    0.00000   100%  12.6   40s
+ 56760  5547    0.00000   28   10 2000000.00    0.00000   100%  12.9   45s
+ 60856  6816    0.00000   29    9 2000000.00    0.00000   100%  13.1   59s
+ 67453  6816    0.00000   34    8 2000000.00    0.00000   100%  13.5   60s
+ 92888  6809    0.00000   40    6 2000000.00    0.00000   100%  14.4   74s
+ 92959  6965    0.00000   41   10 2000000.00    0.00000   100%  14.4   75s
+ 97897  6986    0.00000   34   11 2000000.00    0.00000   100%  14.5   81s
+ 98001  7516 infeasible   35      2000000.00    0.00000   100%  14.5   97s
+ 130033  7517    0.00000   43   12 2000000.00    0.00000   100%  15.2  114s
+ 130096  7971    0.00000   44   10 2000000.00    0.00000   100%  15.2  140s
+ 151117  7971 infeasible   39      2000000.00    0.00000   100%  15.4  149s
+ 162128  7976    0.00000   48    8 2000000.00    0.00000   100%  15.5  162s
+ 162187  8353    0.00000   49    9 2000000.00    0.00000   100%  15.5  200s
+ 182836  8353    0.00000   48    6 2000000.00    0.00000   100%  15.7  207s
+
+Cutting planes:
+  Learned: 11
+  Gomory: 5
+  Implied bound: 40
+  MIR: 25
+  Flow cover: 413
+  Inf proof: 564
+  RLT: 2
+  Relax-and-lift: 1
+
+Explored 191513 nodes (3106659 simplex iterations) in 211.51 seconds (20.34 work units)
+Thread count was 32 (of 32 available processors)
+
+Solution count 1: 2e+06
+
+Time limit reached
+Best objective 2.000000000000e+06, best bound 0.000000000000e+00, gap 100.0000%
+WARNING: Loading a SolverResults object with an 'aborted' status, but
+containing a solution
+    -> 候选任务 Task_3 求解器未找到解: status=aborted, tc=maxTimeLimit
+       Solver message: Optimization terminated because the time expended exceeded the value specified in the TimeLimit parameter.
+    -> 尝试执行 Gurobi IIS 分析以定位冲突约束...
+IIS computation: initial model status unknown, solving to determine model status
+Found heuristic solution: objective 2000000.0000
+
+Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
+Thread count was 1 (of 32 available processors)
+
+Solution count 1: 2e+06
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 2.000000000000e+06, best bound 2.000000000000e+06, gap 0.0000%
+IIS runtime: 0.00 seconds (0.00 work units)
+       IIS分析失败: Cannot compute IIS on a feasible model
+开始构建【第二阶段：运营执行 - 标准VRP逻辑版】模型...
+  -> 规划车辆: ['HDT_1']
+  -> 规划任务: ['Task_4']
+任务尝试 HDT_1:  75%|███████▌  | 3/4 [10:14<03:26, 206.31s/it]【第二阶段 - 标准VRP逻辑版】模型构建完成。
+Read LP format model from file C:\Users\MSI-NB\AppData\Local\Temp\tmpqgi6afpv.pyomo.lp
+Reading time = 0.02 seconds
+x1: 775 rows, 1186 columns, 3378 nonzeros
+Set parameter TimeLimit to value 200
+Set parameter MIPGap to value 0.05
+Set parameter MIPFocus to value 1
+Set parameter Heuristics to value 0.8
+Set parameter Cuts to value 2
+Gurobi Optimizer version 10.0.1 build v10.0.1rc0 (win64)
+
+CPU model: 13th Gen Intel(R) Core(TM) i9-13980HX, instruction set [SSE2|AVX|AVX2]
+Thread count: 24 physical cores, 32 logical processors, using up to 32 threads
+
+Optimize a model with 775 rows, 1186 columns and 3378 nonzeros
+Model fingerprint: 0xb8719236
+Variable types: 1032 continuous, 154 integer (154 binary)
+Coefficient statistics:
+  Matrix range     [8e-05, 1e+03]
+  Objective range  [2e-01, 2e+06]
+  Bounds range     [1e+00, 4e+02]
+  RHS range        [1e+00, 1e+03]
+Found heuristic solution: objective 2000000.0000
+Presolve removed 106 rows and 988 columns
+Presolve time: 0.02s
+Presolved: 669 rows, 198 columns, 3139 nonzeros
+Variable types: 67 continuous, 131 integer (131 binary)
+
+Root relaxation: objective 0.000000e+00, 57 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    0.00000    0    6 2000000.00    0.00000   100%     -    0s
+     0     0    0.00000    0    6 2000000.00    0.00000   100%     -    0s
+     0     0    0.00000    0    6 2000000.00    0.00000   100%     -    0s
+     0     0    0.00000    0    6 2000000.00    0.00000   100%     -    0s
+     0     0    0.00000    0    9 2000000.00    0.00000   100%     -    0s
+     0     0    0.00000    0    9 2000000.00    0.00000   100%     -    0s
+     0     0    0.00000    0    9 2000000.00    0.00000   100%     -    0s
+     0     0    0.00000    0    9 2000000.00    0.00000   100%     -    0s
+     0     0    0.00000    0    8 2000000.00    0.00000   100%     -    0s
+     0     2    0.00000    0    8 2000000.00    0.00000   100%     -    0s
+   647   461    0.00000   15    9 2000000.00    0.00000   100%   8.9    5s
+  4607  1594    0.00000   22    6 2000000.00    0.00000   100%   7.7   10s
+ 12628  2323    0.00000   18    6 2000000.00    0.00000   100%   0.1   15s
+ 17466  2156 infeasible   28      2000000.00    0.00000   100%   3.5   20s
+ 25017  2782    0.00000   27    8 2000000.00    0.00000   100%   6.8   25s
+ 32581  3901    0.00000   25    6 2000000.00    0.00000   100%   8.7   31s
+ 41836  4170    0.00000   29    8 2000000.00    0.00000   100%  10.1   36s
+ 43000  5022    0.00000   35    9 2000000.00    0.00000   100%  10.3   40s
+ 57826  5503    0.00000   38    4 2000000.00    0.00000   100%  11.4   46s
+ 67648  6472 infeasible   37      2000000.00    0.00000   100%  12.0   51s
+ 74644  7016 infeasible   29      2000000.00    0.00000   100%  12.3   55s
+ 95701  8023 infeasible   33      2000000.00    0.00000   100%  12.9   62s
+ 95868  9018    0.00000   33    6 2000000.00    0.00000   100%  12.9   74s
+ 116519  9018    0.00000   28    8 2000000.00    0.00000   100%  13.2   79s
+ 127530  9030 infeasible   36      2000000.00    0.00000   100%  13.4   89s
+ 127653 10332    0.00000   32    9 2000000.00    0.00000   100%  13.4  102s
+ 159685 10349    0.00000   26    4 2000000.00    0.00000   100%  13.8  125s
+ 159731 10676    0.00000   27    9 2000000.00    0.00000   100%  13.8  143s
+ 172744 10676 infeasible   36      2000000.00    0.00000   100%  13.9  146s
+ 191674 10683    0.00000   42   10 2000000.00    0.00000   100%  14.1  164s
+ 191731 11084    0.00000   43    4 2000000.00    0.00000   100%  14.1  166s
+ 197311 11089    0.00000   28    8 2000000.00    0.00000   100%  14.1  175s
+ 197369 11249    0.00000   29    9 2000000.00    0.00000   100%  14.1  200s
+
+Cutting planes:
+  Learned: 11
+  Gomory: 5
+  Lift-and-project: 1
+  Cover: 2
+  Implied bound: 35
+  MIR: 7
+  Flow cover: 354
+  Inf proof: 548
+  RLT: 3
+  Relax-and-lift: 1
+
+Explored 226535 nodes (3345145 simplex iterations) in 211.21 seconds (20.49 work units)
+Thread count was 32 (of 32 available processors)
+
+Solution count 1: 2e+06
+
+Time limit reached
+Best objective 2.000000000000e+06, best bound 0.000000000000e+00, gap 100.0000%
+WARNING: Loading a SolverResults object with an 'aborted' status, but
+containing a solution
+    -> 候选任务 Task_4 求解器未找到解: status=aborted, tc=maxTimeLimit
+       Solver message: Optimization terminated because the time expended exceeded the value specified in the TimeLimit parameter.
+    -> 尝试执行 Gurobi IIS 分析以定位冲突约束...
+IIS computation: initial model status unknown, solving to determine model status
+Found heuristic solution: objective 2000000.0000
+
+Explored 0 nodes (0 simplex iterations) in 0.00 seconds (0.00 work units)
+Thread count was 1 (of 32 available processors)
+
+Solution count 1: 2e+06
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 2.000000000000e+06, best bound 2.000000000000e+06, gap 0.0000%
+IIS runtime: 0.00 seconds (0.00 work units)
+       IIS分析失败: Cannot compute IIS on a feasible model
+  --> 本轮无任务可插入，车辆 HDT_1 规划完成。
+
+==================================================
+=== 第二阶段贪心插入规划完成 ===
+总计分配了 0 个任务。
+警告: 4 个任务在第二阶段未能被任何车辆服务。
+
+==================================================
+=== POST ANALYSIS ===
+==================================================
+所有车辆规划的总估算成本: 0.00 (没有任务被成功分配)
+
+注意：由于采用启发式方法，无法绘制包含所有路径的全局路线图，且成本非最优。
+流程成功结束！
+
+进程已结束,退出代码0

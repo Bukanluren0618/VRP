@@ -76,7 +76,7 @@ def create_operational_model(data, vehicle_ids, task_ids, deactivated_constraint
     if 'hdt_routing' not in deactivated_constraints:
         def task_served_rule(m, t):
             customer = data['tasks'][t]['delivery_to']
-            return sum(m.y[customer, k] for k in m.VEHICLES) <= 1
+            return sum(m.y[customer, k] for k in m.VEHICLES) == 1
 
         model.task_served_constr = Constraint(model.TASKS, rule=task_served_rule)
 
@@ -84,6 +84,38 @@ def create_operational_model(data, vehicle_ids, task_ids, deactivated_constraint
             return sum(m.x[i, n, k] for i in m.LOCATIONS if i != n) == sum(m.x[n, j, k] for j in m.LOCATIONS if j != n)
 
         model.flow_balance_constr = Constraint(model.VEHICLES, model.LOCATIONS, rule=flow_balance_rule)
+
+        def return_to_depot_rule(m, k):
+            depot_id = data['vehicles'][k]['depot_id']
+            return sum(m.x[i, depot_id, k] for i in m.LOCATIONS if i != depot_id) <= 1
+
+        model.return_to_depot_constr = Constraint(model.VEHICLES, rule=return_to_depot_rule)
+
+        def depot_flow_balance_rule(m, k):
+            depot_id = data['vehicles'][k]['depot_id']
+            return (
+                sum(m.x[depot_id, j, k] for j in m.LOCATIONS if j != depot_id)
+                == sum(m.x[i, depot_id, k] for i in m.LOCATIONS if i != depot_id)
+            )
+
+        model.depot_flow_balance_constr = Constraint(model.VEHICLES, rule=depot_flow_balance_rule)
+
+        def no_self_loop_rule(m, i, k):
+            return m.x[i, i, k] == 0
+
+        model.no_self_loop_constr = Constraint(model.LOCATIONS, model.VEHICLES, rule=no_self_loop_rule)
+
+        # Miller-Tucker-Zemlin subtour elimination variables
+        if len(customer_nodes) > 0:
+            model.u = Var(model.CUSTOMERS, model.VEHICLES, bounds=(0, len(customer_nodes)))
+
+            def mtz_rule(m, i, j, k):
+                if i == j:
+                    return Constraint.Skip
+                N = len(customer_nodes)
+                return m.u[i, k] - m.u[j, k] + N * m.x[i, j, k] <= N - 1
+
+            model.subtour_elim_constr = Constraint(model.CUSTOMERS, model.CUSTOMERS, model.VEHICLES, rule=mtz_rule)
 
         def start_from_depot_rule(m, k):
             depot_id = data['vehicles'][k]['depot_id']
