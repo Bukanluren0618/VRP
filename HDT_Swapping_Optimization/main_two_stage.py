@@ -27,10 +27,14 @@ def compute_gurobi_iis(model, filename="model_iis.ilp"):
         for constr in solver._solver_model.getConstrs():
             if constr.IISConstr:
                 print(f"       IIS约束: {constr.ConstrName}")
+        try:
+            bound = solver._solver_model.ObjBound
+            print(f"       当前BestBd: {bound}")
+        except Exception:
+            pass
         print(f"    -> IIS written to {filename}")
     except Exception as e:
         print(f"       IIS分析失败: {e}")
-
 
 
 
@@ -147,6 +151,13 @@ def run_greedy_insertion_stage2(data, solver, vehicle_ids, task_ids):
                 elif config.SOLVER_NAME.lower() == 'ipopt':
                     solver.options['max_cpu_time'] = config.TIME_LIMIT_SECONDS
                 results = solver.solve(model_single_insertion, tee=True)
+                if hasattr(solver, "_solver_model"):
+                    try:
+                        print(
+                            f"       求解器返回 BestBd={solver._solver_model.ObjBound}"
+                        )
+                    except Exception:
+                        pass
                 if results.solver.termination_condition not in (
                         TerminationCondition.optimal,
                         TerminationCondition.locallyOptimal,
