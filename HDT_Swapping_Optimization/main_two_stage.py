@@ -125,7 +125,21 @@ def run_greedy_insertion_stage2(data, solver, vehicle_ids, task_ids):
                     solver.options['max_cpu_time'] = 20
                 results = solver.solve(model_single_insertion, tee=False)
                 if results.solver.termination_condition not in ['optimal', 'locallyOptimal']:
-                    print(f"    -> 候选任务 {candidate_task} 求解器未找到解: status={results.solver.status}, tc={results.solver.termination_condition}")
+                    print(
+                        f"    -> 候选任务 {candidate_task} 求解器未找到解: status={results.solver.status}, tc={results.solver.termination_condition}"
+                    )
+                    if results.solver.termination_condition == TerminationCondition.infeasible and config.SOLVER_NAME.lower() == 'gurobi':
+                        print("    -> 执行 Gurobi IIS 分析以定位冲突约束...")
+                        try:
+                            iis_solver = SolverFactory('gurobi_persistent')
+                            iis_solver.set_instance(model_single_insertion)
+                            iis_solver._solver_model.computeIIS()
+                            iis_solver._solver_model.write('stage2_iis.ilp')
+                            for constr in iis_solver._solver_model.getConstrs():
+                                if constr.IISConstr:
+                                    print(f"       IIS约束: {constr.ConstrName}")
+                        except Exception as e:
+                            print(f"       IIS分析失败: {e}")
 
                 # 检查这个插入是否可行
                 try:
