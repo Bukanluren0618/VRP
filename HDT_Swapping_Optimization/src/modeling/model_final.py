@@ -6,13 +6,7 @@ from src.common import config_final as config
 
 
 def create_operational_model(data, vehicle_ids, task_ids, fixed_route=None):
-    """
-    创建第二阶段运营执行模型 - 全功能最终版
-    - 恢复所有严格约束和完整功能。
-    - 包含独立的弹性变量以确保在数学上总是有解。
-    - 新增 fixed_route 参数，用于路径验证模式。
-    """
-    model = ConcreteModel(name="Operational_VRP_Model_Final")
+    model = ConcreteModel(name="Operational_VRP_Model_Final_Corrected")
 
     # --- Sets & Params ---
     model.LOCATIONS = Set(initialize=data['locations'].keys())
@@ -21,7 +15,6 @@ def create_operational_model(data, vehicle_ids, task_ids, fixed_route=None):
     all_customer_nodes = {data['tasks'][t]['delivery_to'] for t in task_ids} if task_ids else set()
     model.CUSTOMERS = Set(initialize=list(all_customer_nodes))
     model.STATIONS = Set(initialize=data['stations'].keys())
-    model.TIME = Set(initialize=data['time_steps'])
     depot_ids = list({v['depot_id'] for k, v in data['vehicles'].items() if k in vehicle_ids})
     model.DEPOT = Set(initialize=depot_ids)
     model.NODES = model.LOCATIONS - model.DEPOT
@@ -41,55 +34,43 @@ def create_operational_model(data, vehicle_ids, task_ids, fixed_route=None):
                             bounds=(0, config.HDT_BATTERY_CAPACITY_KWH))
     model.weight_on_arrival = Var(model.LOCATIONS, model.VEHICLES, within=NonNegativeReals)
     model.swap_decision = Var(model.STATIONS, model.VEHICLES, within=Binary)
-
-    # 恢复独立的弹性变量，以保证模型在数学上总有解
     model.delay_hours = Var(model.TASKS, model.VEHICLES, within=NonNegativeReals)
     model.soc_deficit = Var(model.NODES, model.VEHICLES, within=NonNegativeReals)
 
-    # 恢复能源相关变量
-    model.P_grid = Var(model.STATIONS, model.TIME, within=NonNegativeReals)
-    model.P_charge_batt = Var(model.STATIONS, model.TIME, within=NonNegativeReals)
-    model.ev_unserved = Var(model.STATIONS, model.TIME, within=NonNegativeReals)
-    model.N_full_batt = Var(model.STATIONS, model.TIME, within=NonNegativeIntegers)
-    model.N_empty_batt = Var(model.STATIONS, model.TIME, within=NonNegativeIntegers)
-
-    # --- Objective Function (全功能版本) ---
+    # --- Objective Function ---
     def objective_rule(m):
-        travel_cost = config.MANPOWER_COST_PER_HOUR * sum(m.tour_duration[k] for k in m.VEHICLES)
-        swap_cost = config.FIXED_SWAP_COST * sum(m.swap_decision[s, k] for s in m.STATIONS for k in m.VEHICLES)
-        grid_cost = sum(
-            m.P_grid[s, t] * config.TIME_STEP_HOURS * data['electricity_prices'][t] for s in m.STATIONS for t in m.TIME)
-        ev_penalty = config.EV_UNSERVED_PENALTY_PER_KWH * sum(
-            m.ev_unserved[s, t] * config.TIME_STEP_HOURS for s in m.STATIONS for t in m.TIME)
-
-        delay_penalty = config.DELAY_PENALTY_PER_HOUR * sum(m.delay_hours[t, k] for t in m.TASKS for k in m.VEHICLES)
-        soc_deficit_penalty = 1e6 * sum(m.soc_deficit[n, k] for n in m.NODES for k in m.VEHICLES)
-        unserved_task_penalty = config.UNASSIGNED_TASK_PENALTY * (
-                    len(m.TASKS) - sum(m.y[c, k] for c in m.CUSTOMERS for k in m.VEHICLES))
-
-        return travel_cost + swap_cost + grid_cost + ev_penalty + delay_penalty + soc_deficit_penalty + unserved_task_penalty
+        travel_cost = summation(m.tour_duration) * config.MANPOWER_COST_PER_HOUR
+        swap_cost = summation(m.swap_decision) * config.FIXED_SWAP_COST
+        delay_penalty = summation(m.delay_hours) * config.DELAY_PENALTY_PER_HOUR
+        soc_deficit_penalty = summation(m.soc_deficit) * 1e6  # High penalty
+        unserved_task_penalty = 0
+        if not fixed_route:
+            unserved_task_penalty = (len(m.TASKS) - summation(m.y)) * config.UNASSIGNED_TASK_PENALTY
+        return travel_cost + swap_cost + delay_penalty + soc_deficit_penalty + unserved_task_penalty
 
     model.objective = Objective(rule=objective_rule, sense=minimize)
+
+    model.ARCS = Set(dimen=3,
+                     initialize=[(i, j, k) for k in model.VEHICLES for i in model.LOCATIONS for j in model.LOCATIONS if
+                                 i != j])
+    # *** KEY FIX: Create a set for arcs that DO NOT end at a depot ***
+    model.ARCS_TO_NODES = Set(initialize=model.ARCS, filter=lambda m, i, j, k: j not in m.DEPOT)
 
     # --- 固定路径 (用于验证模式) ---
     if fixed_route:
         vehicle_id = list(model.VEHICLES)[0]
-        # 固定y变量：路径上的点为1，其他为0
-        for n in model.LOCATIONS:
-            if n in fixed_route and n not in model.DEPOT:
-                model.y[n, vehicle_id].fix(1)
-            elif n not in model.DEPOT:
-                model.y[n, vehicle_id].fix(0)
-        # 固定x变量：根据路径顺序设置弧为1，其他为0
-        for i in model.LOCATIONS:
-            for j in model.LOCATIONS:
-                model.x[i, j, vehicle_id].fix(0)
+        # Deactivate all arcs first
+        for i, j, k in model.ARCS:
+            if k == vehicle_id:
+                model.x[i, j, k].fix(0)
+        # Activate the arcs in the fixed route
         for i in range(len(fixed_route) - 1):
             u, v = fixed_route[i], fixed_route[i + 1]
-            model.x[u, v, vehicle_id].fix(1)
+            if u != v:
+                model.x[u, v, vehicle_id].fix(1)
 
     # --- VRP Routing Constraints ---
-    if not fixed_route:  # 寻路模式下才需要这些约束
+    if not fixed_route:
         def task_served_rule(m, t):
             customer = data['tasks'][t]['delivery_to']
             return sum(m.y[customer, k] for k in m.VEHICLES) <= 1
@@ -112,11 +93,17 @@ def create_operational_model(data, vehicle_ids, task_ids, fixed_route=None):
 
     model.y_x_relation_constr = Constraint(model.VEHICLES, model.NODES, rule=y_x_relation_rule)
 
-    # --- Initial State & Physics Constraints (恢复最严格版本) ---
+    # --- Initial State Constraints (at Depot) ---
     def initial_time_rule(m, k):
         return m.arrival_time[data['vehicles'][k]['depot_id'], k] == 0
 
     model.initial_time_constr = Constraint(model.VEHICLES, rule=initial_time_rule)
+
+    def departure_time_depot_rule(m, k):
+        return m.departure_time[data['vehicles'][k]['depot_id'], k] == m.arrival_time[
+            data['vehicles'][k]['depot_id'], k]
+
+    model.departure_time_depot_constr = Constraint(model.VEHICLES, rule=departure_time_depot_rule)
 
     def initial_soc_rule(m, k):
         return m.soc_arrival[data['vehicles'][k]['depot_id'], k] == data['vehicles'][k]['initial_soc']
@@ -131,58 +118,25 @@ def create_operational_model(data, vehicle_ids, task_ids, fixed_route=None):
 
     model.initial_weight_constr = Constraint(model.VEHICLES, rule=initial_weight_rule)
 
-    model.ARCS = Set(dimen=3,
-                     initialize=[(i, j, k) for k in model.VEHICLES for i in model.LOCATIONS for j in model.LOCATIONS if
-                                 i != j])
-
+    # --- State Propagation Constraints (for arcs to non-depot nodes) ---
+    # *** KEY FIX: All propagation constraints now apply ONLY to ARCS_TO_NODES ***
     def weight_propagate_upper_rule(m, i, j, k):
-        if i in m.DEPOT: return Constraint.Skip
         weight_depart_i = m.weight_on_arrival[i, k] - customer_demands.get(i, 0) * m.y[i, k]
         return m.weight_on_arrival[j, k] - weight_depart_i <= M_weight * (1 - m.x[i, j, k])
 
-    model.weight_propagate_upper = Constraint(model.ARCS, rule=weight_propagate_upper_rule)
+    model.weight_propagate_upper = Constraint(model.ARCS_TO_NODES, rule=weight_propagate_upper_rule)
 
     def weight_propagate_lower_rule(m, i, j, k):
-        if i in m.DEPOT: return Constraint.Skip
         weight_depart_i = m.weight_on_arrival[i, k] - customer_demands.get(i, 0) * m.y[i, k]
         return m.weight_on_arrival[j, k] - weight_depart_i >= -M_weight * (1 - m.x[i, j, k])
 
-    model.weight_propagate_lower = Constraint(model.ARCS, rule=weight_propagate_lower_rule)
-
-    def link_swap_to_visit_rule(m, s, k):
-        return m.swap_decision[s, k] <= m.y[s, k]
-
-    model.link_swap_to_visit_constr = Constraint(model.STATIONS, model.VEHICLES, rule=link_swap_to_visit_rule)
-
-    def departure_time_rule(m, i, k):
-        if i in m.DEPOT: return m.departure_time[i, k] == m.arrival_time[i, k]
-        service_time = config.LOADING_UNLOADING_TIME_HOURS if i in m.CUSTOMERS else 0
-        swap_time = config.SWAP_DURATION_HOURS * m.swap_decision[i, k] if i in m.STATIONS else 0
-        return m.departure_time[i, k] >= m.arrival_time[i, k] + service_time + swap_time - M_time * (1 - m.y[i, k])
-
-    model.departure_time_constr = Constraint(model.NODES, model.VEHICLES, rule=departure_time_rule)
+    model.weight_propagate_lower = Constraint(model.ARCS_TO_NODES, rule=weight_propagate_lower_rule)
 
     def time_propagate_rule(m, i, j, k):
         travel_time = data['time_matrix'].loc[i, j]
         return m.arrival_time[j, k] >= m.departure_time[i, k] + travel_time - M_time * (1 - m.x[i, j, k])
 
-    model.time_propagate_constr = Constraint(model.ARCS, rule=time_propagate_rule)
-
-    def delay_calculation_rule(m, t, k):
-        customer = data['tasks'][t]['delivery_to']
-        return m.delay_hours[t, k] >= m.arrival_time[customer, k] - data['tasks'][t]['due_time'] - M_time * (
-                    1 - m.y[customer, k])
-
-    model.delay_calculation_constr = Constraint(model.TASKS, model.VEHICLES, rule=delay_calculation_rule)
-
-    def tour_duration_rule(m, i, k):
-        depot_id = data['vehicles'][k]['depot_id']
-        if (i, depot_id, k) in m.ARCS:
-            return m.tour_duration[k] >= m.departure_time[i, k] + data['time_matrix'].loc[i, depot_id] - M_time * (
-                        1 - m.x[i, depot_id, k])
-        return Constraint.Skip
-
-    model.tour_duration_constr = Constraint(model.NODES, model.VEHICLES, rule=tour_duration_rule)
+    model.time_propagate_constr = Constraint(model.ARCS_TO_NODES, rule=time_propagate_rule)
 
     def soc_propagate_upper_rule(m, i, j, k):
         weight_depart_i = m.weight_on_arrival[i, k] - customer_demands.get(i, 0) * m.y[i, k] if i not in m.DEPOT else \
@@ -194,7 +148,7 @@ def create_operational_model(data, vehicle_ids, task_ids, fixed_route=None):
                     config.HDT_BATTERY_CAPACITY_KWH - m.soc_arrival[i, k])
         return m.soc_arrival[j, k] - (soc_depart_i - energy_consumed) <= M_soc * (1 - m.x[i, j, k])
 
-    model.soc_propagate_upper = Constraint(model.ARCS, rule=soc_propagate_upper_rule)
+    model.soc_propagate_upper = Constraint(model.ARCS_TO_NODES, rule=soc_propagate_upper_rule)
 
     def soc_propagate_lower_rule(m, i, j, k):
         weight_depart_i = m.weight_on_arrival[i, k] - customer_demands.get(i, 0) * m.y[i, k] if i not in m.DEPOT else \
@@ -206,11 +160,40 @@ def create_operational_model(data, vehicle_ids, task_ids, fixed_route=None):
                     config.HDT_BATTERY_CAPACITY_KWH - m.soc_arrival[i, k])
         return m.soc_arrival[j, k] - (soc_depart_i - energy_consumed) >= -M_soc * (1 - m.x[i, j, k])
 
-    model.soc_propagate_lower = Constraint(model.ARCS, rule=soc_propagate_lower_rule)
+    model.soc_propagate_lower = Constraint(model.ARCS_TO_NODES, rule=soc_propagate_lower_rule)
+
+    # --- Node-based Constraints (at non-depot nodes) ---
+    def link_swap_to_visit_rule(m, s, k):
+        return m.swap_decision[s, k] <= m.y[s, k]
+
+    model.link_swap_to_visit_constr = Constraint(model.STATIONS, model.VEHICLES, rule=link_swap_to_visit_rule)
+
+    def departure_time_rule(m, i, k):
+        service_time = config.LOADING_UNLOADING_TIME_HOURS if i in m.CUSTOMERS else 0
+        swap_time = config.SWAP_DURATION_HOURS * m.swap_decision[i, k] if i in m.STATIONS else 0
+        return m.departure_time[i, k] >= m.arrival_time[i, k] + service_time + swap_time - M_time * (1 - m.y[i, k])
+
+    model.departure_time_constr = Constraint(model.NODES, model.VEHICLES, rule=departure_time_rule)
+
+    def delay_calculation_rule(m, t, k):
+        customer = data['tasks'][t]['delivery_to']
+        return m.delay_hours[t, k] >= m.arrival_time[customer, k] - data['tasks'][t]['due_time'] - M_time * (
+                    1 - m.y[customer, k])
+
+    model.delay_calculation_constr = Constraint(model.TASKS, model.VEHICLES, rule=delay_calculation_rule)
 
     def min_soc_rule(m, k, n):
         return m.soc_deficit[n, k] >= config.HDT_MIN_SOC_KWH - m.soc_arrival[n, k] - M_soc * (1 - m.y[n, k])
 
     model.min_soc_constr = Constraint(model.VEHICLES, model.NODES, rule=min_soc_rule)
+
+    # --- Final State Calculation (for arcs returning to depot) ---
+    def tour_duration_rule(m, i, k):
+        if i in m.DEPOT: return Constraint.Skip  # Should only trigger from a non-depot node
+        depot_id = data['vehicles'][k]['depot_id']
+        return m.tour_duration[k] >= m.departure_time[i, k] + data['time_matrix'].loc[i, depot_id] - M_time * (
+                    1 - m.x[i, depot_id, k])
+
+    model.tour_duration_constr = Constraint(model.NODES, model.VEHICLES, rule=tour_duration_rule)
 
     return model

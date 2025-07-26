@@ -12,15 +12,14 @@ CHARGE_LOAD_FILENAME = "充电负荷报表-海宜路1、2号5月.csv"
 BATTERY_SOC_FILENAME = "电池SOC数据.csv"
 
 # --- [最终验证场景] ---
-# 使用一个极简、清晰的单车场景来验证最终算法
-CITY_NODE_COUNT = 50       # 减小路网规模以便快速运行
-CITY_GRAPH_RADIUS = 0.25   # 增大连接半径，确保路径存在
+CITY_NODE_COUNT = 50
+CITY_GRAPH_RADIUS = 0.25
 NUM_DEPOTS = 1
-NUM_TRUCKS = 1             # **核心修改：强制单车场景**
-NUM_STATIONS = 5           # 保证有足够的换电站
-NUM_CUSTOMERS = 10         # 少量客户点
-MIN_TASKS_PER_TRUCK = 1
-MAX_TASKS_PER_TRUCK = 8    # loader会为这1辆车生成最多8个任务
+NUM_TRUCKS = 1
+NUM_STATIONS = 5
+NUM_CUSTOMERS = 10
+MIN_TASKS_PER_TRUCK = 1 # **核心修正：加回此参数**
+MAX_TASKS_PER_TRUCK = 8
 
 DISTANCE_DIVISOR = 100.0
 
