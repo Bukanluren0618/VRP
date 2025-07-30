@@ -10,16 +10,20 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), 'src')))
 
 from src.data_processing import loader_final
 from src.modeling import model_final as stage2_model_builder
-from src.modeling import station_energy_model
+
 from src.analysis import post_analysis
 
 
 # (check_route_feasibility 和 run_greedy_insertion_stage2 函数保持不变)
-def check_route_feasibility(data, solver, vehicle_id, route, task_ids_in_route, config):
+def check_route_feasibility(data, solver, vehicle_id, route, task_ids_in_route):
     if len(route) <= 2:
         return 0, None
-    model = stage2_model_builder.create_operational_model(data, vehicle_ids=[vehicle_id], task_ids=task_ids_in_route,
-                                                          config=config, fixed_route=route)
+    model = stage2_model_builder.create_operational_model(
+        data,
+        vehicle_ids=[vehicle_id],
+        task_ids=task_ids_in_route,
+        fixed_route=route,
+    )
     results = solver.solve(model, tee=False)
     termination_condition = results.solver.termination_condition
     if termination_condition == TerminationCondition.optimal or termination_condition == TerminationCondition.feasible:
@@ -47,7 +51,13 @@ def run_greedy_insertion_stage2(data, solver, vehicle_ids, task_ids, config):
         current_total_cost = 0
         current_route_costs = {}
         for k in vehicle_ids:
-            cost, _ = check_route_feasibility(data, solver, k, routes[k], tasks_in_routes[k], config)
+            cost, _ = check_route_feasibility(
+                data,
+                solver,
+                k,
+                routes[k],
+                tasks_in_routes[k],
+            )
             if cost == float('inf'):
                 cost = 1e9
             current_route_costs[k] = cost
@@ -64,7 +74,13 @@ def run_greedy_insertion_stage2(data, solver, vehicle_ids, task_ids, config):
                     pbar.update(1)
                     temp_route = current_route[:i] + [customer_node] + current_route[i:]
                     temp_tasks = tasks_in_routes[k] + [task_to_insert]
-                    new_route_cost, _ = check_route_feasibility(data, solver, k, temp_route, temp_tasks, config)
+                    new_route_cost, _ = check_route_feasibility(
+                        data,
+                        solver,
+                        k,
+                        temp_route,
+                        temp_tasks,
+                    )
                     if new_route_cost != float('inf'):
                         other_routes_cost = current_total_cost - current_route_costs[k]
                         total_new_cost = new_route_cost + other_routes_cost
@@ -112,7 +128,13 @@ def run_greedy_insertion_stage2(data, solver, vehicle_ids, task_ids, config):
     for k in vehicle_ids:
         if len(routes[k]) > 2:
             print(f"车辆 {k} 的最终路径: {' -> '.join(routes[k])}")
-            cost, model = check_route_feasibility(data, solver, k, routes[k], tasks_in_routes[k], config)
+            cost, model = check_route_feasibility(
+                data,
+                solver,
+                k,
+                routes[k],
+                tasks_in_routes[k],
+            )
             if cost != float('inf') and model is not None:
                 final_cost += cost
                 total_assigned_tasks += len(tasks_in_routes[k])
@@ -229,7 +251,7 @@ def main():
         from src.common import config_final as config
 
     try:
-        model_data = loader_final.create_urban_delivery_scenario(config)
+        model_data = loader_final.create_urban_delivery_scenario()
         if model_data is None: return
         solver = SolverFactory(config.SOLVER_NAME)
         if IS_QUICK_TEST:
