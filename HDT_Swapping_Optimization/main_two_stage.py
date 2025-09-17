@@ -230,8 +230,8 @@ def main():
     # 步骤3: 调用get_data_dictionary()来获取准备好的数据
     data = data_loader.get_data_dictionary()
 
-    # 使用更稳定的cbc求解器
-    solver = SolverFactory('cbc')
+
+    solver = SolverFactory('gurobi')
 
     task_ids = list(data['tasks'].keys())
     vehicle_ids = list(data['vehicles'].keys())
