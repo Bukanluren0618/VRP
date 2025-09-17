@@ -22,7 +22,7 @@ class SimulationEnvironment:
                 'location': v['depot_id'],  # Current node location
                 'status': 'IDLE',  # IDLE, DRIVING, SWAPPING, UNLOADING
                 'action_end_time': 0.0,
-                'route_plan': [],
+                'current_route_plan': [],
                 'tasks_completed': [],
                 'total_wait_time': 0.0
             } for vid, v in data['vehicles'].items()
@@ -42,12 +42,24 @@ class SimulationEnvironment:
         self.grid_bus_loads = {bus_id: 0.0 for bus_id in data['station_to_bus_map'].values()}
         print("Simulation Environment Initialized.")
 
+    # ---------- Public time advance & alarm APIs ----------
     def advance_time_step(self):
-        """Advances the simulation time by one step and returns any triggered alarms."""
+        """
+        Advance simulation time by one step and return any triggered alarms.
+        This is the preferred step function to be called in the main loop.
+        """
         self.time += self.config.TIME_STEP_HOURS
         alarms = self._check_for_alarms()
         return alarms
 
+    def check_all_alarms(self):
+        """
+        Public wrapper for alarm checking.
+        Kept for backward compatibility with callers expecting `check_all_alarms`.
+        """
+        return self._check_for_alarms()
+
+    # ---------- Internal checks ----------
     def _check_for_alarms(self):
         """Checks for all alarm conditions (grid, station, vehicle)."""
         alarms = []
@@ -75,6 +87,7 @@ class SimulationEnvironment:
 
         return alarms
 
+    # ---------- Data for replanning ----------
     def get_vehicle_state_for_replan(self, vehicle_id):
         """Gathers the current, precise state of a vehicle needed for re-planning."""
         state = self.vehicle_states[vehicle_id]

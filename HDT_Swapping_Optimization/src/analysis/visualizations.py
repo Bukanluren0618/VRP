@@ -1,5 +1,6 @@
 # src/analysis/visualizations.py
 
+import os
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
@@ -7,8 +8,8 @@ import seaborn as sns
 import networkx as nx
 
 # --- Global Plotting Settings ---
-plt.rcParams['font.sans-serif'] = ['SimHei']  # Use a font that supports Chinese characters
-plt.rcParams['axes.unicode_minus'] = False  # Ensure minus signs are displayed correctly
+plt.rcParams['font.sans-serif'] = ['SimHei']  # 支持中文
+plt.rcParams['axes.unicode_minus'] = False    # 负号正常显示
 sns.set_theme(style="whitegrid", font="Arial")
 
 
@@ -73,8 +74,9 @@ def plot_road_network_with_routes(road_network, solution_routes, output_dir, tit
     ax.legend(handles=handles, title="Legend")
 
     plt.tight_layout()
-    plt.savefig(f'{output_dir}/fleet_routing_plan_detailed.pdf', format='pdf')
-    plt.show()
+    os.makedirs(output_dir, exist_ok=True)
+    plt.savefig(f'{output_dir}/fleet_routing_plan_detailed.pdf', format='pdf', bbox_inches='tight')
+    plt.close()
 
 
 # --- 2. Case 1: Scheduled vs. Unscheduled Comparison Visualizations ---
@@ -84,15 +86,36 @@ def plot_case1_comparison(scheduled_stats, unscheduled_stats, output_dir):
     Accepts real statistics dictionaries from the simulation.
     """
     print("\n" + "=" * 20 + " Visualizing Case 1: Scheduled vs. Unscheduled " + "=" * 20)
+    os.makedirs(output_dir, exist_ok=True)
 
     # --- Economic Cost Comparison (Bar Chart) ---
+    costs = {
+        'Scheduled Fleet': scheduled_stats['total_cost'],
+        'Unscheduled Fleet': unscheduled_stats['total_cost']
+    }
+    df_cost = pd.DataFrame({
+        "Scenario": list(costs.keys()),
+        "Value": list(costs.values())
+    })
     plt.figure(figsize=(8, 7))
-    costs = {'Scheduled Fleet': scheduled_stats['total_cost'], 'Unscheduled Fleet': unscheduled_stats['total_cost']}
-    sns.barplot(x=list(costs.keys()), y=list(costs.values()), palette=['#31a354', '#a1d99b'])
-    plt.title('Case 1: Economic Cost Comparison', fontsize=16)
-    plt.ylabel('Total Daily Cost (Yuan)')
+    ax = sns.barplot(
+        data=df_cost,
+        x="Scenario",
+        y="Value",
+        hue="Scenario",                     # 修复 FutureWarning：配合 palette 使用
+        palette=['#31a354', '#a1d99b'],
+        legend=False
+    )
+    ax.set_title('Case 1: Economic Cost Comparison', fontsize=16)
+    ax.set_ylabel('Total Daily Cost (Yuan)')
+    # 数值标签
+    for p in ax.patches:
+        val = p.get_height()
+        ax.annotate(f"{val:.1f}", (p.get_x() + p.get_width()/2, val),
+                    ha="center", va="bottom", fontsize=10, xytext=(0, 3), textcoords="offset points")
+    plt.tight_layout()
     plt.savefig(f"{output_dir}/case1_cost_comparison.pdf", format='pdf', bbox_inches='tight')
-    plt.show()
+    plt.close()
 
     # --- Energy Flow Comparison (Stacked Area Chart) ---
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15, 12), sharex=True)
@@ -107,8 +130,9 @@ def plot_case1_comparison(scheduled_stats, unscheduled_stats, output_dir):
         ax.legend(loc='upper left')
     plt.xlabel('Time (Hour of Day)')
     fig.suptitle('Case 1: Station Energy Flow Comparison', fontsize=18, y=0.99)
+    plt.tight_layout()
     plt.savefig(f"{output_dir}/case1_energy_flow_comparison.pdf", format='pdf', bbox_inches='tight')
-    plt.show()
+    plt.close()
 
     # --- Grid Peak Shaving Comparison (Line Chart) ---
     plt.figure(figsize=(15, 7))
@@ -121,20 +145,22 @@ def plot_case1_comparison(scheduled_stats, unscheduled_stats, output_dir):
     plt.xlabel('Time (Hour of Day)')
     plt.ylabel('Power Drawn from Grid (kW)')
     plt.legend()
+    plt.tight_layout()
     plt.savefig(f"{output_dir}/case1_peak_shaving_comparison.pdf", format='pdf', bbox_inches='tight')
-    plt.show()
+    plt.close()
 
     # --- Delivery & Queue Time (Printed Table) ---
     df_times = pd.DataFrame({
         'Metric': ['Avg. Delivery Time (h)', 'Avg. Queue Time (min)', 'Total Wait Time (h)'],
-        'Scheduled Fleet': [f"{scheduled_stats['avg_delivery_time']:.2f}", f"{scheduled_stats['avg_queue_time']:.2f}",
-                            f"{scheduled_stats['total_wait_time']:.2f}"],
-        'Unscheduled Fleet': [f"{unscheduled_stats['avg_delivery_time']:.2f}",
-                              f"{unscheduled_stats['avg_queue_time']:.2f}",
-                              f"{unscheduled_stats['total_wait_time']:.2f}"]
+        'Scheduled Fleet': [f"{scheduled_stats.get('avg_delivery_time', 0.0):.2f}",
+                            f"{scheduled_stats.get('avg_queue_time', 0.0):.2f}",
+                            f"{scheduled_stats.get('total_wait_time', 0.0):.2f}"],
+        'Unscheduled Fleet': [f"{unscheduled_stats.get('avg_delivery_time', 0.0):.2f}",
+                              f"{unscheduled_stats.get('avg_queue_time', 0.0):.2f}",
+                              f"{unscheduled_stats.get('total_wait_time', 0.0):.2f}"]
     }).set_index('Metric')
     print("\n--- Case 1: Time Performance Comparison ---")
-    print(df_times)
+    print(df_times.to_string())
 
 
 # --- 3. Case 2: EV + EHDT Arrival Heatmap ---
@@ -144,13 +170,15 @@ def plot_case2_heatmap(arrival_matrix, output_dir):
     Accepts a DataFrame of arrival data.
     """
     print("\n" + "=" * 20 + " Visualizing Case 2: Station Arrival Heatmap " + "=" * 20)
+    os.makedirs(output_dir, exist_ok=True)
     plt.figure(figsize=(20, 10))
     sns.heatmap(arrival_matrix, cmap='YlOrRd', linewidths=.5, annot=True, fmt=".0f")
     plt.title('Case 2: Station Vehicle Arrivals (EV + EHDT)', fontsize=16)
     plt.xlabel('Hour of Day')
     plt.ylabel('Station ID')
+    plt.tight_layout()
     plt.savefig(f"{output_dir}/case2_arrival_heatmap.pdf", format='pdf', bbox_inches='tight')
-    plt.show()
+    plt.close()
 
 
 # --- 4. Case 3: Grid Service Strategy Comparison ---
@@ -160,28 +188,52 @@ def plot_case3_comparison(stats_dict, output_dir):
     Accepts a dictionary of statistics for each strategy.
     """
     print("\n" + "=" * 20 + " Visualizing Case 3: Grid Service Strategies " + "=" * 20)
+    os.makedirs(output_dir, exist_ok=True)
 
     # --- Economic Cost Comparison ---
     costs = {name: stats['total_cost'] for name, stats in stats_dict.items()}
+    df_cost = pd.DataFrame({
+        "Strategy": list(costs.keys()),
+        "Value": list(costs.values())
+    })
     plt.figure(figsize=(12, 8))
-    sns.barplot(x=list(costs.keys()), y=list(costs.values()), palette=['#2c7fb8', '#7fcdbb', '#edf8b1'])
-    plt.title('Case 3: Economic Cost of Different Battery Strategies', fontsize=16)
-    plt.ylabel('Total Daily Cost (Yuan)')
+    # 动态生成与策略数相等的调色板
+    base_palette = ['#2c7fb8', '#7fcdbb', '#edf8b1', '#7bccc4', '#a1dab4', '#41b6c4', '#c7e9b4']
+    palette = base_palette[:len(df_cost)]
+    ax = sns.barplot(
+        data=df_cost,
+        x="Strategy",
+        y="Value",
+        hue="Strategy",                  # 修复 FutureWarning
+        palette=palette,
+        legend=False
+    )
+    ax.set_title('Case 3: Economic Cost of Different Battery Strategies', fontsize=16)
+    ax.set_ylabel('Total Daily Cost (Yuan)')
     plt.xticks(rotation=15, ha='right')
+    # 数值标签
+    for p in ax.patches:
+        val = p.get_height()
+        ax.annotate(f"{val:.1f}", (p.get_x() + p.get_width()/2, val),
+                    ha="center", va="bottom", fontsize=10, xytext=(0, 3), textcoords="offset points")
+    plt.tight_layout()
     plt.savefig(f"{output_dir}/case3_cost_comparison.pdf", format='pdf', bbox_inches='tight')
-    plt.show()
+    plt.close()
 
     # --- Peak Shaving Comparison ---
     plt.figure(figsize=(15, 7))
-    colors = ['#2c7fb8', '#7fcdbb', '#edf8b1']
-    linestyles = ['-', '--', ':']
+    line_colors = ['#2c7fb8', '#7fcdbb', '#edf8b1', '#7bccc4', '#a1dab4', '#41b6c4', '#c7e9b4']
+    linestyles = ['-', '--', ':', '-.', (0, (3, 1, 1, 1)), (0, (5, 1)), (0, (5, 2))]
     for i, (name, stats) in enumerate(stats_dict.items()):
-        plt.plot(stats['grid_load'].index, stats['grid_load'], label=name, color=colors[i], linestyle=linestyles[i],
-                 linewidth=2.5)
+        color = line_colors[i % len(line_colors)]
+        ls = linestyles[i % len(linestyles)]
+        plt.plot(stats['grid_load'].index, stats['grid_load'],
+                 label=name, color=color, linestyle=ls, linewidth=2.5)
     plt.axhline(0, color='gray', linestyle=':')
     plt.title('Case 3: Grid Peak Shaving Comparison', fontsize=16)
     plt.xlabel('Time (Hour of Day)')
     plt.ylabel('Power Drawn from Grid (kW)')
     plt.legend()
+    plt.tight_layout()
     plt.savefig(f"{output_dir}/case3_peak_shaving_comparison.pdf", format='pdf', bbox_inches='tight')
-    plt.show()
+    plt.close()
