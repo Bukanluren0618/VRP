@@ -199,8 +199,10 @@ def run_simulation(data, solver, config, initial_routes, strategy='scheduled'):
         'avg_delivery_time': np.random.uniform(3, 4),
         'avg_queue_time': np.random.uniform(5, 10) if strategy == 'scheduled' else np.random.uniform(20, 40),
         'total_wait_time': np.random.uniform(50, 100) if strategy == 'scheduled' else np.random.uniform(200, 400),
-        'energy_flows': pd.DataFrame(np.random.rand(config.TOTAL_TIME_STEPS, 4),
-                                     columns=['grid_input', 'pv_output', 'bess_discharge', 'total_demand']),
+        'energy_flows': pd.DataFrame(
+            np.random.rand(config.TOTAL_TIME_STEPS, 4),
+            columns=['grid_power', 'pv_power', 'bess_discharge', 'total_demand']
+        ),
         'grid_load': pd.Series(np.random.rand(config.TOTAL_TIME_STEPS) * 100)
     }
     return stats
