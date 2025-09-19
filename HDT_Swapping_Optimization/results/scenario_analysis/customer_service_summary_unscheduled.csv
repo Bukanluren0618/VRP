@@ -1,0 +1,2 @@
+customer,node_id,pos_x,pos_y,vehicles_served,num_vehicles_served,tasks_delivered,total_delivered_ton
+Customer_33,21,0.22789827565154686,0.28938796360210717,HDT_12,1,Task_1,2.43

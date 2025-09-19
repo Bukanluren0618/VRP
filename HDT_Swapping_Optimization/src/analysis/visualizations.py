@@ -14,71 +14,6 @@ sns.set_theme(style="whitegrid", font="Arial")
 
 
 # --- 1. Road Network and Vehicle Routes Visualization (Preserved and Corrected) ---
-def plot_road_network_with_routes(road_network, solution_routes, output_dir, title="Fleet Routing Plan"):
-    """
-    Visualizes the road network and plots the optimized vehicle routes on top.
-    This version is corrected to properly handle node types from the data loader.
-    """
-    print("--- Visualizing Fleet Routing Plan ---")
-    plt.style.use('seaborn-v0_8-darkgrid')
-    fig, ax = plt.subplots(figsize=(20, 16))
-
-    pos = nx.get_node_attributes(road_network, 'pos')
-    if not pos:
-        print("Node positions not found, generating spring layout.")
-        pos = nx.spring_layout(road_network, seed=42)
-
-    # Correctly extract node types from the data structure
-    node_info = nx.get_node_attributes(road_network, 'info')
-
-    # Define nodes by type
-    depots = [node for node, info in node_info.items() if info.get('type') == 'Depot']
-    customers = [node for node, info in node_info.items() if info.get('type') == 'Customer']
-    stations = [node for node, info in node_info.items() if info.get('type') == 'SwapStation']
-
-    # Draw the base road network
-    nx.draw_networkx_edges(road_network, pos, alpha=0.2, edge_color='gray', ax=ax)
-    nx.draw_networkx_nodes(road_network, pos, nodelist=depots, node_color='gold', node_shape='s', node_size=400,
-                           label='Depot')
-    nx.draw_networkx_nodes(road_network, pos, nodelist=customers, node_color='skyblue', node_size=200, label='Customer')
-    nx.draw_networkx_nodes(road_network, pos, nodelist=stations, node_color='lightgreen', node_shape='p', node_size=350,
-                           label='Station')
-    nx.draw_networkx_labels(road_network, pos, font_size=8, ax=ax)
-
-    # Draw the vehicle routes
-    if solution_routes:
-        route_colors = plt.cm.get_cmap('gist_rainbow', len(solution_routes))
-        for i, (vehicle_id, route) in enumerate(solution_routes.items()):
-            if not route or len(route) < 2:
-                continue
-
-            # Convert route names to node IDs for plotting
-            route_node_ids = [node for name in route for node, info in node_info.items() if info.get('name') == name]
-
-            if len(route_node_ids) >= 2:
-                route_edges = list(zip(route_node_ids[:-1], route_node_ids[1:]))
-                nx.draw_networkx_edges(road_network, pos, edgelist=route_edges,
-                                       width=2.5, alpha=0.9, edge_color=route_colors(i),
-                                       label=vehicle_id, ax=ax, connectionstyle='arc3,rad=0.1')
-
-    ax.set_title(title, fontsize=24, fontweight='bold')
-
-    # Create a clean legend
-    handles, labels = ax.get_legend_handles_labels()
-    # Manually add node type legend entries
-    handles.extend([
-        plt.Line2D([0], [0], marker='s', color='w', label='Depot', markerfacecolor='gold', markersize=10),
-        plt.Line2D([0], [0], marker='o', color='w', label='Customer', markerfacecolor='skyblue', markersize=10),
-        plt.Line2D([0], [0], marker='p', color='w', label='Station', markerfacecolor='lightgreen', markersize=10)
-    ])
-    ax.legend(handles=handles, title="Legend")
-
-    plt.tight_layout()
-    os.makedirs(output_dir, exist_ok=True)
-    plt.savefig(f'{output_dir}/fleet_routing_plan_detailed.pdf', format='pdf', bbox_inches='tight')
-    plt.close()
-
-
 def plot_vehicle_routes_on_network(data, vehicle_event_log, output_dir, title="Vehicle Route Trajectories", strategy_tag="scheduled"):
     """Visualize executed vehicle routes together with depot and station locations."""
 
@@ -270,7 +205,6 @@ def plot_full_road_network(data, output_dir, title="Complete Road Network with K
     plt.close()
     print(f"Full road network plot saved to: {filepath}")
 
-
 # --- 2. Case 1: Scheduled vs. Unscheduled Comparison Visualizations ---
 def plot_case1_comparison(scheduled_stats, unscheduled_stats, output_dir):
     """
@@ -294,9 +228,66 @@ def plot_case1_comparison(scheduled_stats, unscheduled_stats, output_dir):
         data=df_cost,
         x="Scenario",
         y="Value",
-        hue="Scenario",                     # 修复 FutureWarning：配合 palette 使用
+        hue="Scenario",
         palette=['#31a354', '#a1d99b'],
+        legend=False,
+    )
+    ax.set_title('Case 1: Economic Cost Comparison', fontsize=16)
+    ax.set_ylabel('Total Daily Cost (Yuan)')
+    # 数值标签
+    for p in ax.patches:
+        val = p.get_height()
+        ax.annotate(f"{val:.1f}", (p.get_x() + p.get_width()/2, val),
+                    ha="center", va="bottom", fontsize=10, xytext=(0, 3), textcoords="offset points")
+    plt.tight_layout()
+    plt.savefig(f"{output_dir}/case1_cost_comparison.pdf", format='pdf', bbox_inches='tight')
+    plt.close()
 
+    # --- Energy Flow Comparison (Stacked Area Chart) ---
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15, 12), sharex=True)
+    for ax, stats, title in [(ax1, scheduled_stats, 'Scheduled Fleet'), (ax2, unscheduled_stats, 'Unscheduled Fleet')]:
+        df_energy = stats['energy_flows']
+        ax.stackplot(df_energy.index, df_energy['grid_power'], df_energy['pv_power'], df_energy['bess_discharge'],
+                     labels=['Grid Input', 'PV Output', 'BESS Discharge'],
+                     colors=['salmon', 'gold', 'lightgreen'])
+        ax.plot(df_energy['total_demand'], color='black', linestyle='--', label='Total Demand (HDT+EV)')
+        ax.set_title(f'Energy Flow: {title}', fontsize=14)
+        ax.set_ylabel('Power (kW)')
+        ax.legend(loc='upper left')
+    plt.xlabel('Time (Hour of Day)')
+    fig.suptitle('Case 1: Station Energy Flow Comparison', fontsize=18, y=0.99)
+
+    # --- 4. Case 3: Grid Service Strategy Comparison ---
+    def plot_case3_comparison(stats_dict, output_dir):
+        """
+        Generates the V2G strategy comparison charts for Case 3.
+        Accepts a dictionary of statistics for each strategy.
+        """
+        print("\n" + "=" * 20 + " Visualizing Case 3: Grid Service Strategies " + "=" * 20)
+        os.makedirs(output_dir, exist_ok=True)
+
+        # --- Economic Cost Comparison ---
+        costs = {name: stats['total_cost'] for name, stats in stats_dict.items()}
+        df_cost = pd.DataFrame({
+            "Strategy": list(costs.keys()),
+            "Value": list(costs.values())
+        })
+        plt.figure(figsize=(12, 8))
+        # 动态生成与策略数相等的调色板
+        base_palette = ['#2c7fb8', '#7fcdbb', '#edf8b1', '#7bccc4', '#a1dab4', '#41b6c4', '#c7e9b4']
+        palette = base_palette[:len(df_cost)]
+        ax = sns.barplot(
+            data=df_cost,
+            x="Strategy",
+            y="Value",
+            hue="Strategy",
+            palette=palette,
+            legend=False,
+        )
+    ax.set_title('Case 3: Economic Cost of Different Battery Strategies', fontsize=16)
+    ax.set_ylabel('Total Daily Cost (Yuan)')
+    plt.xticks(rotation=15, ha='right')
+    # 数值标签
     for p in ax.patches:
         val = p.get_height()
         ax.annotate(f"{val:.1f}", (p.get_x() + p.get_width()/2, val),
@@ -322,7 +313,6 @@ def plot_case1_comparison(scheduled_stats, unscheduled_stats, output_dir):
     plt.tight_layout()
     plt.savefig(f"{output_dir}/case3_peak_shaving_comparison.pdf", format='pdf', bbox_inches='tight')
     plt.close()
-
 
 def _format_dataframe_for_print(df, float_cols=None, digits=2):
     if df.empty:
