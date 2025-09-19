@@ -6,6 +6,7 @@ import pandas as pd
 import numpy as np
 from tqdm import tqdm
 from pyomo.environ import *
+import inspect
 import heapq
 
 # --- Core Imports ---
@@ -30,7 +31,6 @@ def _format_table_for_print(df, float_cols=None, digits=2):
                 formatters[col] = lambda x, d=digits: "--" if pd.isna(x) else f"{x:.{d}f}"
 
     return df.to_string(index=False, formatters=formatters, na_rep='--')
-
 
 def _print_vehicle_operation_summary(data, vehicle_summary_df, output_dir=None, title=None, file_tag=None):
     """Call the visualization summary helper with a graceful fallback."""

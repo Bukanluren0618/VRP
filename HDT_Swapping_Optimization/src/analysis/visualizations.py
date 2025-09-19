@@ -1,8 +1,7 @@
-# src/analysis/visualizations.py
-
 import os
-import matplotlib.pyplot as plt
 from collections import defaultdict
+
+import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 import seaborn as sns
@@ -185,7 +184,6 @@ def plot_vehicle_routes_on_network(data, vehicle_event_log, output_dir, title="V
         nx.draw_networkx_edges(road_network, pos, edgelist=edges, edge_color=[color], width=2.5,
                                ax=ax, label=f'{vid} route', arrows=False)
 
-
         nodes_to_mark = sorted(visited_nodes[vid])
         if nodes_to_mark:
             nx.draw_networkx_nodes(road_network, pos, nodelist=nodes_to_mark, node_size=60,
@@ -211,70 +209,66 @@ def plot_vehicle_routes_on_network(data, vehicle_event_log, output_dir, title="V
     plt.close()
     print(f"Vehicle route plot saved to: {os.path.join(output_dir, filename)}")
 
-    def plot_full_road_network(data, output_dir, title="Complete Road Network with Key Facilities"):
-        """Plot the entire road network with node identifiers and key facility highlights."""
 
-        road_network = data.get('traffic_graph')
-        if road_network is None:
-            print("未找到路网图数据，跳过完整路网绘制。")
-            return
+def plot_full_road_network(data, output_dir, title="Complete Road Network with Key Facilities"):
+    """Plot the entire road network with node identifiers and key facility highlights."""
 
-        pos = nx.get_node_attributes(road_network, 'pos')
-        if not pos:
-            pos = nx.spring_layout(road_network, seed=42)
+    road_network = data.get('traffic_graph')
+    if road_network is None:
+        print("未找到路网图数据，跳过完整路网绘制。")
+        return
 
-        locations = data.get('locations', {})
-        node_to_type = {info.get('node_id'): info.get('type') for info in locations.values() if
-                        info.get('node_id') is not None}
-        node_to_name = {info.get('node_id'): name for name, info in locations.items() if
-                        info.get('node_id') is not None}
+    pos = nx.get_node_attributes(road_network, 'pos')
+    if not pos:
+        pos = nx.spring_layout(road_network, seed=42)
 
-        plt.style.use('seaborn-v0_8-darkgrid')
-        fig, ax = plt.subplots(figsize=(18, 14))
+    locations = data.get('locations', {})
+    node_to_type = {info.get('node_id'): info.get('type') for info in locations.values() if info.get('node_id') is not None}
+    node_to_name = {info.get('node_id'): name for name, info in locations.items() if info.get('node_id') is not None}
 
-        nx.draw_networkx_edges(road_network, pos, edge_color='#d0d0d0', alpha=0.6, width=0.8, ax=ax)
+    plt.style.use('seaborn-v0_8-darkgrid')
+    fig, ax = plt.subplots(figsize=(18, 14))
 
-        all_nodes = list(road_network.nodes)
-        nx.draw_networkx_nodes(road_network, pos, nodelist=all_nodes, node_color='#b0c4de', node_size=80, alpha=0.85,
-                               ax=ax)
+    nx.draw_networkx_edges(road_network, pos, edge_color='#d0d0d0', alpha=0.6, width=0.8, ax=ax)
 
-        node_labels = {node: str(node) for node in all_nodes}
-        nx.draw_networkx_labels(road_network, pos, labels=node_labels, font_size=6, ax=ax)
+    all_nodes = list(road_network.nodes)
+    nx.draw_networkx_nodes(road_network, pos, nodelist=all_nodes, node_color='#b0c4de', node_size=80, alpha=0.85, ax=ax)
 
-        depot_nodes = [node for node, ntype in node_to_type.items() if ntype == 'Depot']
-        customer_nodes = [node for node, ntype in node_to_type.items() if ntype == 'Customer']
-        station_nodes = [node for node, ntype in node_to_type.items() if ntype == 'SwapStation']
+    node_labels = {node: str(node) for node in all_nodes}
+    nx.draw_networkx_labels(road_network, pos, labels=node_labels, font_size=6, ax=ax)
 
-        if depot_nodes:
-            nx.draw_networkx_nodes(road_network, pos, nodelist=depot_nodes, node_color='#ffcc00',
-                                   node_shape='s', node_size=260, edgecolors='black', linewidths=0.8, ax=ax,
-                                   label='Depot')
-        if customer_nodes:
-            nx.draw_networkx_nodes(road_network, pos, nodelist=customer_nodes, node_color='#66b3ff',
-                                   node_size=150, edgecolors='black', linewidths=0.6, ax=ax, label='Customer')
-        if station_nodes:
-            nx.draw_networkx_nodes(road_network, pos, nodelist=station_nodes, node_color='#8dd3c7',
-                                   node_shape='p', node_size=220, edgecolors='black', linewidths=0.6, ax=ax,
-                                   label='Swap Station')
+    depot_nodes = [node for node, ntype in node_to_type.items() if ntype == 'Depot']
+    customer_nodes = [node for node, ntype in node_to_type.items() if ntype == 'Customer']
+    station_nodes = [node for node, ntype in node_to_type.items() if ntype == 'SwapStation']
 
-        for node_id, name in node_to_name.items():
-            if node_id in pos:
-                xy = pos[node_id]
-                ax.text(xy[0] + 0.005, xy[1] + 0.005, name, fontsize=7, ha='left', va='bottom', color='#333333')
+    if depot_nodes:
+        nx.draw_networkx_nodes(road_network, pos, nodelist=depot_nodes, node_color='#ffcc00',
+                               node_shape='s', node_size=260, edgecolors='black', linewidths=0.8, ax=ax, label='Depot')
+    if customer_nodes:
+        nx.draw_networkx_nodes(road_network, pos, nodelist=customer_nodes, node_color='#66b3ff',
+                               node_size=150, edgecolors='black', linewidths=0.6, ax=ax, label='Customer')
+    if station_nodes:
+        nx.draw_networkx_nodes(road_network, pos, nodelist=station_nodes, node_color='#8dd3c7',
+                               node_shape='p', node_size=220, edgecolors='black', linewidths=0.6, ax=ax, label='Swap Station')
 
-        ax.set_title(title, fontsize=18)
-        ax.axis('off')
+    for node_id, name in node_to_name.items():
+        if node_id in pos:
+            xy = pos[node_id]
+            ax.text(xy[0] + 0.005, xy[1] + 0.005, name, fontsize=7, ha='left', va='bottom', color='#333333')
 
-        handles, labels = ax.get_legend_handles_labels()
-        if handles:
-            ax.legend(handles=handles, loc='upper right', fontsize=9)
+    ax.set_title(title, fontsize=18)
+    ax.axis('off')
 
-        os.makedirs(output_dir, exist_ok=True)
-        filepath = os.path.join(output_dir, 'road_network_full.png')
-        plt.tight_layout()
-        plt.savefig(filepath, dpi=300, bbox_inches='tight')
-        plt.close()
-        print(f"Full road network plot saved to: {filepath}")
+    handles, labels = ax.get_legend_handles_labels()
+    if handles:
+        ax.legend(handles=handles, loc='upper right', fontsize=9)
+
+    os.makedirs(output_dir, exist_ok=True)
+    filepath = os.path.join(output_dir, 'road_network_full.png')
+    plt.tight_layout()
+    plt.savefig(filepath, dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"Full road network plot saved to: {filepath}")
 
 
 # --- 2. Case 1: Scheduled vs. Unscheduled Comparison Visualizations ---
@@ -302,114 +296,7 @@ def plot_case1_comparison(scheduled_stats, unscheduled_stats, output_dir):
         y="Value",
         hue="Scenario",                     # 修复 FutureWarning：配合 palette 使用
         palette=['#31a354', '#a1d99b'],
-        legend=False
-    )
-    ax.set_title('Case 1: Economic Cost Comparison', fontsize=16)
-    ax.set_ylabel('Total Daily Cost (Yuan)')
-    # 数值标签
-    for p in ax.patches:
-        val = p.get_height()
-        ax.annotate(f"{val:.1f}", (p.get_x() + p.get_width()/2, val),
-                    ha="center", va="bottom", fontsize=10, xytext=(0, 3), textcoords="offset points")
-    plt.tight_layout()
-    plt.savefig(f"{output_dir}/case1_cost_comparison.pdf", format='pdf', bbox_inches='tight')
-    plt.close()
 
-    # --- Energy Flow Comparison (Stacked Area Chart) ---
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15, 12), sharex=True)
-    for ax, stats, title in [(ax1, scheduled_stats, 'Scheduled Fleet'), (ax2, unscheduled_stats, 'Unscheduled Fleet')]:
-        df_energy = stats['energy_flows']
-        ax.stackplot(df_energy.index, df_energy['grid_power'], df_energy['pv_power'], df_energy['bess_discharge'],
-                     labels=['Grid Input', 'PV Output', 'BESS Discharge'],
-                     colors=['salmon', 'gold', 'lightgreen'])
-        ax.plot(df_energy['total_demand'], color='black', linestyle='--', label='Total Demand (HDT+EV)')
-        ax.set_title(f'Energy Flow: {title}', fontsize=14)
-        ax.set_ylabel('Power (kW)')
-        ax.legend(loc='upper left')
-    plt.xlabel('Time (Hour of Day)')
-    fig.suptitle('Case 1: Station Energy Flow Comparison', fontsize=18, y=0.99)
-    plt.tight_layout()
-    plt.savefig(f"{output_dir}/case1_energy_flow_comparison.pdf", format='pdf', bbox_inches='tight')
-    plt.close()
-
-    # --- Grid Peak Shaving Comparison (Line Chart) ---
-    plt.figure(figsize=(15, 7))
-    plt.plot(scheduled_stats['energy_flows'].index, scheduled_stats['energy_flows']['grid_power'],
-             label='Scheduled Grid Load', color='#31a354', linewidth=2)
-    plt.plot(unscheduled_stats['energy_flows'].index, unscheduled_stats['energy_flows']['grid_power'],
-             label='Unscheduled Grid Load', color='#a1d99b', linestyle='--')
-    plt.axhline(0, color='gray', linestyle=':')
-    plt.title('Case 1: Grid Peak Shaving Comparison', fontsize=16)
-    plt.xlabel('Time (Hour of Day)')
-    plt.ylabel('Power Drawn from Grid (kW)')
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig(f"{output_dir}/case1_peak_shaving_comparison.pdf", format='pdf', bbox_inches='tight')
-    plt.close()
-
-    # --- Delivery & Queue Time (Printed Table) ---
-    df_times = pd.DataFrame({
-        'Metric': ['Avg. Delivery Time (h)', 'Avg. Queue Time (min)', 'Total Wait Time (h)'],
-        'Scheduled Fleet': [f"{scheduled_stats.get('avg_delivery_time', 0.0):.2f}",
-                            f"{scheduled_stats.get('avg_queue_time', 0.0):.2f}",
-                            f"{scheduled_stats.get('total_wait_time', 0.0):.2f}"],
-        'Unscheduled Fleet': [f"{unscheduled_stats.get('avg_delivery_time', 0.0):.2f}",
-                              f"{unscheduled_stats.get('avg_queue_time', 0.0):.2f}",
-                              f"{unscheduled_stats.get('total_wait_time', 0.0):.2f}"]
-    }).set_index('Metric')
-    print("\n--- Case 1: Time Performance Comparison ---")
-    print(df_times.to_string())
-
-
-# --- 3. Case 2: EV + EHDT Arrival Heatmap ---
-def plot_case2_heatmap(arrival_matrix, output_dir):
-    """
-    Generates the station arrival heatmap for Case 2.
-    Accepts a DataFrame of arrival data.
-    """
-    print("\n" + "=" * 20 + " Visualizing Case 2: Station Arrival Heatmap " + "=" * 20)
-    os.makedirs(output_dir, exist_ok=True)
-    plt.figure(figsize=(20, 10))
-    sns.heatmap(arrival_matrix, cmap='YlOrRd', linewidths=.5, annot=True, fmt=".0f")
-    plt.title('Case 2: Station Vehicle Arrivals (EV + EHDT)', fontsize=16)
-    plt.xlabel('Hour of Day')
-    plt.ylabel('Station ID')
-    plt.tight_layout()
-    plt.savefig(f"{output_dir}/case2_arrival_heatmap.pdf", format='pdf', bbox_inches='tight')
-    plt.close()
-
-
-# --- 4. Case 3: Grid Service Strategy Comparison ---
-def plot_case3_comparison(stats_dict, output_dir):
-    """
-    Generates the V2G strategy comparison charts for Case 3.
-    Accepts a dictionary of statistics for each strategy.
-    """
-    print("\n" + "=" * 20 + " Visualizing Case 3: Grid Service Strategies " + "=" * 20)
-    os.makedirs(output_dir, exist_ok=True)
-
-    # --- Economic Cost Comparison ---
-    costs = {name: stats['total_cost'] for name, stats in stats_dict.items()}
-    df_cost = pd.DataFrame({
-        "Strategy": list(costs.keys()),
-        "Value": list(costs.values())
-    })
-    plt.figure(figsize=(12, 8))
-    # 动态生成与策略数相等的调色板
-    base_palette = ['#2c7fb8', '#7fcdbb', '#edf8b1', '#7bccc4', '#a1dab4', '#41b6c4', '#c7e9b4']
-    palette = base_palette[:len(df_cost)]
-    ax = sns.barplot(
-        data=df_cost,
-        x="Strategy",
-        y="Value",
-        hue="Strategy",                  # 修复 FutureWarning
-        palette=palette,
-        legend=False
-    )
-    ax.set_title('Case 3: Economic Cost of Different Battery Strategies', fontsize=16)
-    ax.set_ylabel('Total Daily Cost (Yuan)')
-    plt.xticks(rotation=15, ha='right')
-    # 数值标签
     for p in ax.patches:
         val = p.get_height()
         ax.annotate(f"{val:.1f}", (p.get_x() + p.get_width()/2, val),
@@ -436,6 +323,7 @@ def plot_case3_comparison(stats_dict, output_dir):
     plt.savefig(f"{output_dir}/case3_peak_shaving_comparison.pdf", format='pdf', bbox_inches='tight')
     plt.close()
 
+
 def _format_dataframe_for_print(df, float_cols=None, digits=2):
     if df.empty:
         return ""
@@ -444,12 +332,13 @@ def _format_dataframe_for_print(df, float_cols=None, digits=2):
         for col in float_cols:
             if col in df.columns:
                 formatters[col] = lambda x, d=digits: "--" if pd.isna(x) else f"{x:.{d}f}"
-            return df.to_string(index=False, formatters=formatters, na_rep='--')
+    return df.to_string(index=False, formatters=formatters, na_rep='--')
 
 
-def print_vehicle_operation_details(vehicle_event_log, output_dir=None, max_vehicles=10):
+def print_vehicle_operation_details(vehicle_event_log, output_dir=None, max_vehicles=10, title=None, file_tag=None):
     """Prints a detailed log of vehicle movements and optionally saves it as CSV."""
-    print("\n" + "=" * 30 + " 车辆执行动作明细 " + "=" * 30)
+    header = title or "车辆执行动作明细"
+    print("\n" + "=" * 30 + f" {header} " + "=" * 30)
     if not vehicle_event_log:
         print("暂无车辆动作记录。")
         return
@@ -470,7 +359,6 @@ def print_vehicle_operation_details(vehicle_event_log, output_dir=None, max_vehi
     if not ordered_ids:
         print("暂无车辆动作记录。")
         return
-
 
     if max_vehicles is not None:
         selected = ordered_ids[:max_vehicles]
@@ -511,7 +399,10 @@ def print_vehicle_operation_details(vehicle_event_log, output_dir=None, max_vehi
     print(_format_dataframe_for_print(df_print, float_cols=float_cols, digits=2))
 
     if output_dir:
-        csv_path = os.path.join(output_dir, 'vehicle_action_log.csv')
+        filename = 'vehicle_action_log.csv'
+        if file_tag:
+            filename = f'vehicle_action_log_{file_tag}.csv'
+        csv_path = os.path.join(output_dir, filename)
         df_events.to_csv(csv_path, index=False)
         print(f"车辆动作日志已保存至: {csv_path}")
 
@@ -547,18 +438,17 @@ def print_location_and_task_overview(data, task_sequences, output_dir=None):
     else:
         print("未生成仓库节点数据。")
 
-    if not station_df.empty:
-        print("\n--- 换电站节点 ---")
-        print(_format_dataframe_for_print(station_df, float_cols=['X坐标', 'Y坐标']))
-    else:
-        print("未生成换电站节点数据。")
-
-
     if not customer_df.empty:
         print("\n--- 客户节点 ---")
         print(_format_dataframe_for_print(customer_df, float_cols=['X坐标', 'Y坐标']))
     else:
         print("未生成客户节点数据。")
+
+    if not station_df.empty:
+        print("\n--- 换电站节点 ---")
+        print(_format_dataframe_for_print(station_df, float_cols=['X坐标', 'Y坐标']))
+    else:
+        print("未生成换电站节点数据。")
 
     tasks = data.get('tasks', {})
     task_rows = []
@@ -624,10 +514,10 @@ def print_location_and_task_overview(data, task_sequences, output_dir=None):
             print(f"车辆任务概览已保存至: {vehicle_task_path}")
 
 
-
-def print_customer_service_summary(customer_df, output_dir=None):
+def print_customer_service_summary(customer_df, output_dir=None, title=None, file_tag=None):
     """Prints how many vehicles served each customer and the delivered quantities."""
-    print("\n" + "=" * 30 + " 客户服务统计 " + "=" * 30)
+    header = title or "客户服务统计"
+    print("\n" + "=" * 30 + f" {header} " + "=" * 30)
     if customer_df is None or customer_df.empty:
         print("暂无客户服务统计数据。")
         return
@@ -646,104 +536,112 @@ def print_customer_service_summary(customer_df, output_dir=None):
     print(_format_dataframe_for_print(df_print, float_cols=['X坐标', 'Y坐标', '累计卸货量(t)']))
 
     if output_dir:
-        summary_path = os.path.join(output_dir, 'customer_service_summary.csv')
+        filename = 'customer_service_summary.csv'
+        if file_tag:
+            filename = f'customer_service_summary_{file_tag}.csv'
+        summary_path = os.path.join(output_dir, filename)
         customer_df.to_csv(summary_path, index=False)
         print(f"客户服务统计已保存至: {summary_path}")
 
-        def print_vehicle_operation_summary(data, vehicle_summary_df, output_dir=None):
-            """Prints aggregated per-vehicle statistics to clarify fleet workload."""
-            print("\n" + "=" * 30 + " 车辆运营总览 " + "=" * 30)
 
-            vehicles_info = data.get('vehicles', {})
-            base_rows = [{
-                'vehicle_id': vid,
-                'home_depot': info.get('depot_id')
-            } for vid, info in vehicles_info.items()]
-            base_df = pd.DataFrame(base_rows)
+def print_vehicle_operation_summary(data, vehicle_summary_df, output_dir=None, title=None, file_tag=None):
+    """Prints aggregated per-vehicle statistics to clarify fleet workload."""
+    header = title or "车辆运营总览"
+    print("\n" + "=" * 30 + f" {header} " + "=" * 30)
 
-            if vehicle_summary_df is None or vehicle_summary_df.empty:
-                summary_df = base_df.copy()
-                summary_df['total_tasks'] = 0
-                summary_df['unique_customers'] = 0
-                summary_df['total_delivered_ton'] = 0.0
-                summary_df['total_distance_km'] = 0.0
-                summary_df['total_travel_time_h'] = 0.0
-                summary_df['total_energy_kwh'] = 0.0
-                summary_df['earliest_depart_h'] = np.nan
-                summary_df['latest_return_h'] = np.nan
-                summary_df['min_soc_kwh'] = [vehicles_info.get(row['vehicle_id'], {}).get('initial_soc', np.nan)
-                                             for _, row in summary_df.iterrows()]
-                summary_df['end_soc_kwh'] = summary_df['min_soc_kwh']
-                summary_df['delivery_details'] = ''
-            else:
-                summary_df = vehicle_summary_df.copy()
-                if not summary_df.empty and 'home_depot' not in summary_df.columns:
-                    summary_df = base_df.merge(summary_df, on='vehicle_id', how='left')
+    vehicles_info = data.get('vehicles', {})
+    base_rows = [{
+        'vehicle_id': vid,
+        'home_depot': info.get('depot_id')
+    } for vid, info in vehicles_info.items()]
+    base_df = pd.DataFrame(base_rows)
 
-            if base_df.empty:
-                if summary_df.empty:
-                    print("暂无车辆信息。")
-                    return
-            else:
-                if summary_df.empty:
-                    summary_df = base_df.copy()
+    if vehicle_summary_df is None or vehicle_summary_df.empty:
+        summary_df = base_df.copy()
+        summary_df['total_tasks'] = 0
+        summary_df['unique_customers'] = 0
+        summary_df['total_delivered_ton'] = 0.0
+        summary_df['total_distance_km'] = 0.0
+        summary_df['total_travel_time_h'] = 0.0
+        summary_df['total_energy_kwh'] = 0.0
+        summary_df['earliest_depart_h'] = np.nan
+        summary_df['latest_return_h'] = np.nan
+        summary_df['min_soc_kwh'] = [vehicles_info.get(row['vehicle_id'], {}).get('initial_soc', np.nan)
+                                      for _, row in summary_df.iterrows()]
+        summary_df['end_soc_kwh'] = summary_df['min_soc_kwh']
+        summary_df['delivery_details'] = ''
+    else:
+        summary_df = vehicle_summary_df.copy()
+        if not summary_df.empty and 'home_depot' not in summary_df.columns:
+            summary_df = base_df.merge(summary_df, on='vehicle_id', how='left')
 
-            defaults = {
-                'total_tasks': 0,
-                'unique_customers': 0,
-                'total_delivered_ton': 0.0,
-                'total_distance_km': 0.0,
-                'total_travel_time_h': 0.0,
-                'total_energy_kwh': 0.0,
-                'earliest_depart_h': np.nan,
-                'latest_return_h': np.nan,
-                'min_soc_kwh': np.nan,
-                'end_soc_kwh': np.nan,
-                'delivery_details': ''
-            }
+    if base_df.empty:
+        if summary_df.empty:
+            print("暂无车辆信息。")
+            return
+    else:
+        if summary_df.empty:
+            summary_df = base_df.copy()
 
-            for col, default in defaults.items():
-                if col not in summary_df.columns:
-                    summary_df[col] = default
+    defaults = {
+        'total_tasks': 0,
+        'unique_customers': 0,
+        'total_delivered_ton': 0.0,
+        'total_distance_km': 0.0,
+        'total_travel_time_h': 0.0,
+        'total_energy_kwh': 0.0,
+        'earliest_depart_h': np.nan,
+        'latest_return_h': np.nan,
+        'min_soc_kwh': np.nan,
+        'end_soc_kwh': np.nan,
+        'delivery_details': ''
+    }
 
-            initial_soc_map = {vid: info.get('initial_soc', np.nan) for vid, info in vehicles_info.items()}
-            summary_df['min_soc_kwh'] = summary_df['min_soc_kwh'].fillna(summary_df['vehicle_id'].map(initial_soc_map))
-            summary_df['end_soc_kwh'] = summary_df['end_soc_kwh'].fillna(summary_df['vehicle_id'].map(initial_soc_map))
+    for col, default in defaults.items():
+        if col not in summary_df.columns:
+            summary_df[col] = default
 
-            summary_df['total_tasks'] = summary_df['total_tasks'].fillna(0).astype(int)
-            summary_df['unique_customers'] = summary_df['unique_customers'].fillna(0).astype(int)
-            summary_df['total_delivered_ton'] = summary_df['total_delivered_ton'].fillna(0.0)
-            summary_df['total_distance_km'] = summary_df['total_distance_km'].fillna(0.0)
-            summary_df['total_travel_time_h'] = summary_df['total_travel_time_h'].fillna(0.0)
-            summary_df['total_energy_kwh'] = summary_df['total_energy_kwh'].fillna(0.0)
-            summary_df['delivery_details'] = summary_df['delivery_details'].fillna('')
+    initial_soc_map = {vid: info.get('initial_soc', np.nan) for vid, info in vehicles_info.items()}
+    summary_df['min_soc_kwh'] = summary_df['min_soc_kwh'].fillna(summary_df['vehicle_id'].map(initial_soc_map))
+    summary_df['end_soc_kwh'] = summary_df['end_soc_kwh'].fillna(summary_df['vehicle_id'].map(initial_soc_map))
 
-            summary_df = summary_df.sort_values(by=['total_tasks', 'total_distance_km'], ascending=False)
+    summary_df['total_tasks'] = summary_df['total_tasks'].fillna(0).astype(int)
+    summary_df['unique_customers'] = summary_df['unique_customers'].fillna(0).astype(int)
+    summary_df['total_delivered_ton'] = summary_df['total_delivered_ton'].fillna(0.0)
+    summary_df['total_distance_km'] = summary_df['total_distance_km'].fillna(0.0)
+    summary_df['total_travel_time_h'] = summary_df['total_travel_time_h'].fillna(0.0)
+    summary_df['total_energy_kwh'] = summary_df['total_energy_kwh'].fillna(0.0)
+    summary_df['delivery_details'] = summary_df['delivery_details'].fillna('')
 
-            rename_map = {
-                'vehicle_id': '车辆',
-                'home_depot': '所属仓库',
-                'total_tasks': '任务数量',
-                'unique_customers': '服务客户数',
-                'total_delivered_ton': '累计卸货量(t)',
-                'total_distance_km': '累计行驶距离(km)',
-                'total_travel_time_h': '累计行驶时间(h)',
-                'total_energy_kwh': '能耗(kWh)',
-                'earliest_depart_h': '最早出发(h)',
-                'latest_return_h': '最晚返回(h)',
-                'min_soc_kwh': '最低SOC(kWh)',
-                'end_soc_kwh': '返回SOC(kWh)',
-                'delivery_details': '客户任务汇总'
-            }
+    summary_df = summary_df.sort_values(by=['total_tasks', 'total_distance_km'], ascending=False)
 
-            float_cols = ['累计卸货量(t)', '累计行驶距离(km)', '累计行驶时间(h)', '能耗(kWh)',
-                          '最早出发(h)', '最晚返回(h)', '最低SOC(kWh)', '返回SOC(kWh)']
+    rename_map = {
+        'vehicle_id': '车辆',
+        'home_depot': '所属仓库',
+        'total_tasks': '任务数量',
+        'unique_customers': '服务客户数',
+        'total_delivered_ton': '累计卸货量(t)',
+        'total_distance_km': '累计行驶距离(km)',
+        'total_travel_time_h': '累计行驶时间(h)',
+        'total_energy_kwh': '能耗(kWh)',
+        'earliest_depart_h': '最早出发(h)',
+        'latest_return_h': '最晚返回(h)',
+        'min_soc_kwh': '最低SOC(kWh)',
+        'end_soc_kwh': '返回SOC(kWh)',
+        'delivery_details': '客户任务汇总'
+    }
 
-            display_df = summary_df.rename(columns=rename_map)
-            print(_format_dataframe_for_print(display_df, float_cols=float_cols))
+    float_cols = ['累计卸货量(t)', '累计行驶距离(km)', '累计行驶时间(h)', '能耗(kWh)',
+                  '最早出发(h)', '最晚返回(h)', '最低SOC(kWh)', '返回SOC(kWh)']
 
-            if output_dir:
-                os.makedirs(output_dir, exist_ok=True)
-                summary_path = os.path.join(output_dir, 'vehicle_operation_summary.csv')
-                summary_df.to_csv(summary_path, index=False)
-                print(f"车辆运营总览已保存至: {summary_path}")
+    display_df = summary_df.rename(columns=rename_map)
+    print(_format_dataframe_for_print(display_df, float_cols=float_cols))
+
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+        filename = 'vehicle_operation_summary.csv'
+        if file_tag:
+            filename = f'vehicle_operation_summary_{file_tag}.csv'
+        summary_path = os.path.join(output_dir, filename)
+        summary_df.to_csv(summary_path, index=False)
+        print(f"车辆运营总览已保存至: {summary_path}")
