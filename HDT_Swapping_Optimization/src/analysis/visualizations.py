@@ -214,14 +214,21 @@ def plot_case1_comparison(scheduled_stats, unscheduled_stats, output_dir):
     print("\n" + "=" * 20 + " Visualizing Case 1: Scheduled vs. Unscheduled " + "=" * 20)
     os.makedirs(output_dir, exist_ok=True)
 
-    # --- Economic Cost Comparison (Bar Chart) ---
-    costs = {
-        'Scheduled Fleet': scheduled_stats['total_cost'],
-        'Unscheduled Fleet': unscheduled_stats['total_cost']
+    scenario_stats = {
+        'Scheduled Fleet': scheduled_stats,
+        'Unscheduled Fleet': unscheduled_stats,
     }
+
+    # Backwards compatibility: prior revisions of this helper referenced a
+    # ``stats_dict`` local when looping over the scenarios.  Providing this
+    # alias ensures older inline snippets (or stale bytecode) still find the
+    # expected name and prevents ``NameError`` crashes reported by users.
+    stats_dict = scenario_stats
+
+    # --- Economic Cost Comparison (Bar Chart) ---
     df_cost = pd.DataFrame({
-        "Scenario": list(costs.keys()),
-        "Value": list(costs.values())
+        "Scenario": list(scenario_stats.keys()),
+        "Value": [stats['total_cost'] for stats in scenario_stats.values()],
     })
     plt.figure(figsize=(8, 7))
     ax = sns.barplot(
@@ -256,6 +263,61 @@ def plot_case1_comparison(scheduled_stats, unscheduled_stats, output_dir):
         ax.legend(loc='upper left')
     plt.xlabel('Time (Hour of Day)')
     fig.suptitle('Case 1: Station Energy Flow Comparison', fontsize=18, y=0.99)
+    plt.tight_layout()
+    plt.savefig(f"{output_dir}/case1_energy_flow_comparison.pdf", format='pdf', bbox_inches='tight')
+    plt.close()
+
+    # --- Grid Peak Shaving Comparison (Line Chart) ---
+    plt.figure(figsize=(15, 7))
+    colors = ['#31a354', '#a1d99b']
+    linestyles = ['-', '--']
+    for (title, stats), color, ls in zip(scenario_stats.items(), colors, linestyles):
+        plt.plot(stats['energy_flows'].index, stats['energy_flows']['grid_power'],
+                 label=f'{title} Grid Load', color=color, linestyle=ls, linewidth=2)
+    plt.axhline(0, color='gray', linestyle=':')
+    plt.title('Case 1: Grid Peak Shaving Comparison', fontsize=16)
+    plt.xlabel('Time (Hour of Day)')
+    plt.ylabel('Power Drawn from Grid (kW)')
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(f"{output_dir}/case1_peak_shaving_comparison.pdf", format='pdf', bbox_inches='tight')
+    plt.close()
+
+    # --- Delivery & Queue Time (Printed Table) ---
+    metrics = [
+        ('Avg. Delivery Time (h)', 'avg_delivery_time'),
+        ('Avg. Queue Time (min)', 'avg_queue_time'),
+        ('Total Wait Time (h)', 'total_wait_time'),
+    ]
+    df_times = pd.DataFrame(
+        {
+            'Metric': [label for label, _ in metrics],
+            **{
+                title: [f"{stats.get(key, 0.0):.2f}" for _, key in metrics]
+                for title, stats in scenario_stats.items()
+            },
+        }
+    ).set_index('Metric')
+    print("\n--- Case 1: Time Performance Comparison ---")
+    print(df_times.to_string())
+
+    # --- 3. Case 2: EV + EHDT Arrival Heatmap ---
+    def plot_case2_heatmap(arrival_matrix, output_dir):
+        """
+        Generates the station arrival heatmap for Case 2.
+        Accepts a DataFrame of arrival data.
+        """
+        print("\n" + "=" * 20 + " Visualizing Case 2: Station Arrival Heatmap " + "=" * 20)
+        os.makedirs(output_dir, exist_ok=True)
+        plt.figure(figsize=(20, 10))
+        sns.heatmap(arrival_matrix, cmap='YlOrRd', linewidths=.5, annot=True, fmt=".0f")
+        plt.title('Case 2: Station Vehicle Arrivals (EV + EHDT)', fontsize=16)
+        plt.xlabel('Hour of Day')
+        plt.ylabel('Station ID')
+        plt.tight_layout()
+        plt.savefig(f"{output_dir}/case2_arrival_heatmap.pdf", format='pdf', bbox_inches='tight')
+        plt.close()
+
 
     # --- 4. Case 3: Grid Service Strategy Comparison ---
     def plot_case3_comparison(stats_dict, output_dir):
