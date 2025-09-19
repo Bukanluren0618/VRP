@@ -129,8 +129,87 @@ def _print_vehicle_operation_summary(data, vehicle_summary_df, output_dir=None, 
             filename = f'vehicle_operation_summary_{file_tag}.csv'
         export_path = os.path.join(output_dir, filename)
         summary_df.to_csv(export_path, index=False)
-        summary_df.to_csv(export_path, index=False)
+
         print(f"车辆运营总览已保存至: {export_path}")
+
+        def _ensure_case_visualization_helpers():
+            """保证旧版本可视化模块也能使用 Case 2/3 绘图功能。"""
+
+            if not callable(getattr(visualizations, 'plot_case2_heatmap', None)):
+                print("（提示：检测到旧版可视化模块缺少 Case 2 热力图方法，已启用回退实现。）")
+
+                def _fallback_case2_heatmap(arrival_matrix, output_dir):
+                    import matplotlib.pyplot as plt
+                    import seaborn as sns
+
+                    os.makedirs(output_dir, exist_ok=True)
+                    plt.figure(figsize=(20, 10))
+                    sns.heatmap(arrival_matrix, cmap='YlOrRd', linewidths=.5, annot=True, fmt=".0f")
+                    plt.title('Case 2: Station Vehicle Arrivals (EV + EHDT)', fontsize=16)
+                    plt.xlabel('Hour of Day')
+                    plt.ylabel('Station ID')
+                    plt.tight_layout()
+                    plt.savefig(f"{output_dir}/case2_arrival_heatmap.pdf", format='pdf', bbox_inches='tight')
+                    plt.close()
+
+                visualizations.plot_case2_heatmap = _fallback_case2_heatmap
+
+            if not callable(getattr(visualizations, 'plot_case3_comparison', None)):
+                print("（提示：检测到旧版可视化模块缺少 Case 3 对比方法，已启用回退实现。）")
+
+                def _fallback_case3_comparison(stats_dict, output_dir):
+                    import matplotlib.pyplot as plt
+                    import seaborn as sns
+
+                    os.makedirs(output_dir, exist_ok=True)
+
+                    costs = {name: stats['total_cost'] for name, stats in stats_dict.items()}
+                    df_cost = pd.DataFrame({
+                        "Strategy": list(costs.keys()),
+                        "Value": list(costs.values())
+                    })
+
+                    plt.figure(figsize=(12, 8))
+                    base_palette = ['#2c7fb8', '#7fcdbb', '#edf8b1', '#7bccc4', '#a1dab4', '#41b6c4', '#c7e9b4']
+                    palette = base_palette[:len(df_cost)]
+                    ax = sns.barplot(
+                        data=df_cost,
+                        x="Strategy",
+                        y="Value",
+                        hue="Strategy",
+                        palette=palette,
+                        legend=False,
+                    )
+                    ax.set_title('Case 3: Economic Cost of Different Battery Strategies', fontsize=16)
+                    ax.set_ylabel('Total Daily Cost (Yuan)')
+                    plt.xticks(rotation=15, ha='right')
+                    for p in ax.patches:
+                        val = p.get_height()
+                        ax.annotate(f"{val:.1f}", (p.get_x() + p.get_width() / 2, val),
+                                    ha="center", va="bottom", fontsize=10,
+                                    xytext=(0, 3), textcoords="offset points")
+                    plt.tight_layout()
+                    plt.savefig(f"{output_dir}/case3_cost_comparison.pdf", format='pdf', bbox_inches='tight')
+                    plt.close()
+
+                    plt.figure(figsize=(15, 7))
+                    line_colors = ['#2c7fb8', '#7fcdbb', '#edf8b1', '#7bccc4', '#a1dab4', '#41b6c4', '#c7e9b4']
+                    linestyles = ['-', '--', ':', '-.', (0, (3, 1, 1, 1)), (0, (5, 1)), (0, (5, 2))]
+                    for i, (name, stats) in enumerate(stats_dict.items()):
+                        color = line_colors[i % len(line_colors)]
+                        ls = linestyles[i % len(linestyles)]
+                        plt.plot(stats['grid_load'].index, stats['grid_load'],
+                                 label=name, color=color, linestyle=ls, linewidth=2.5)
+                    plt.axhline(0, color='gray', linestyle=':')
+                    plt.title('Case 3: Grid Peak Shaving Comparison', fontsize=16)
+                    plt.xlabel('Time (Hour of Day)')
+                    plt.ylabel('Power Drawn from Grid (kW)')
+                    plt.legend()
+                    plt.tight_layout()
+                    plt.savefig(f"{output_dir}/case3_peak_shaving_comparison.pdf", format='pdf', bbox_inches='tight')
+                    plt.close()
+
+                visualizations.plot_case3_comparison = _fallback_case3_comparison
 
 
 # --- FAST HEURISTIC PLANNER (Replaces the slow greedy insertion) ---
