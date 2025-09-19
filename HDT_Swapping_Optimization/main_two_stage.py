@@ -104,8 +104,11 @@ def run_real_simulation(data, config, initial_routes, task_sequences, strategy='
         state['initial_load'] = total_load
         if strategy == 'scheduled':
             planned_route = list(initial_routes.get(vid, []))
-            # remove the origin depot which matches the current location
-            state['route_plan'] = planned_route[1:]
+            if planned_tasks:
+                # remove the origin depot which matches the current location
+                state['route_plan'] = planned_route[1:] if len(planned_route) > 1 else []
+            else:
+                state['route_plan'] = []
         else:
             customer_order = [tasks[tid]['delivery_to'] for tid in planned_tasks]
             if customer_order:
@@ -215,8 +218,13 @@ def run_real_simulation(data, config, initial_routes, task_sequences, strategy='
     df_energy = pd.DataFrame(energy_data).set_index('time') if energy_data else pd.DataFrame()
 
     customer_service_summary = pd.DataFrame()
+    vehicle_summary = pd.DataFrame({
+        'vehicle_id': list(vehicles.keys()),
+        'home_depot': [vehicles[vid]['depot_id'] for vid in vehicles]
+    })
     if vehicle_event_log:
         df_events = pd.DataFrame(vehicle_event_log)
+        df_events = df_events.sort_values(by=['vehicle_id', 'depart_time']).reset_index(drop=True)
         customer_events = df_events[df_events['stop_type'] == 'Customer']
         if not customer_events.empty:
             service_rows = []
@@ -235,6 +243,87 @@ def run_real_simulation(data, config, initial_routes, task_sequences, strategy='
                 })
             customer_service_summary = pd.DataFrame(service_rows).sort_values('customer')
 
+            deliveries = df_events[df_events['task_id'].notna()]
+            if not deliveries.empty:
+                delivery_totals = deliveries.groupby('vehicle_id').agg(
+                    total_tasks=('task_id', 'count'),
+                    total_delivered_ton=('delivered_amount_ton', 'sum'),
+                    unique_customers=('delivered_customer', lambda s: s.dropna().nunique())
+                )
+
+                distance_totals = df_events.groupby('vehicle_id')['distance_km'].sum()
+                time_totals = df_events.groupby('vehicle_id')['travel_time_h'].sum()
+                energy_totals = df_events.groupby('vehicle_id')['energy_consumed_kwh'].sum()
+                depart_times = df_events.groupby('vehicle_id')['depart_time'].min()
+                arrive_times = df_events.groupby('vehicle_id')['arrive_time'].max()
+                min_soc = df_events.groupby('vehicle_id').apply(
+                    lambda g: min(g['soc_start_kwh'].min(), g['soc_end_kwh'].min())
+                )
+                end_soc = df_events.groupby('vehicle_id')['soc_end_kwh'].last()
+
+                customer_breakdown = deliveries.groupby(['vehicle_id', 'delivered_customer']).agg(
+                    delivered_ton=('delivered_amount_ton', 'sum'),
+                    num_tasks=('task_id', 'count')
+                ).reset_index()
+
+                def format_customer_rows(group):
+                    rows = []
+                    for _, row in group.sort_values('delivered_ton', ascending=False).iterrows():
+                        customer = row['delivered_customer']
+                        ton = row['delivered_ton']
+                        count = int(row['num_tasks'])
+                        rows.append(f"{customer}:{ton:.2f}t/{count}单")
+                    return "; ".join(rows)
+
+                delivery_details = customer_breakdown.groupby('vehicle_id').apply(format_customer_rows)
+
+                vehicle_summary = (
+                    vehicle_summary
+                    .merge(delivery_totals, left_on='vehicle_id', right_index=True, how='left')
+                    .merge(distance_totals.rename('total_distance_km'), left_on='vehicle_id', right_index=True,
+                           how='left')
+                    .merge(time_totals.rename('total_travel_time_h'), left_on='vehicle_id', right_index=True,
+                           how='left')
+                    .merge(energy_totals.rename('total_energy_kwh'), left_on='vehicle_id', right_index=True, how='left')
+                    .merge(depart_times.rename('earliest_depart_h'), left_on='vehicle_id', right_index=True, how='left')
+                    .merge(arrive_times.rename('latest_return_h'), left_on='vehicle_id', right_index=True, how='left')
+                    .merge(min_soc.rename('min_soc_kwh'), left_on='vehicle_id', right_index=True, how='left')
+                    .merge(end_soc.rename('end_soc_kwh'), left_on='vehicle_id', right_index=True, how='left')
+                )
+
+                vehicle_summary['delivery_details'] = vehicle_summary['vehicle_id'].map(delivery_details).fillna('')
+
+        defaults = {
+            'total_tasks': 0,
+            'unique_customers': 0,
+            'total_delivered_ton': 0.0,
+            'total_distance_km': 0.0,
+            'total_travel_time_h': 0.0,
+            'total_energy_kwh': 0.0,
+            'earliest_depart_h': np.nan,
+            'latest_return_h': np.nan,
+            'min_soc_kwh': np.nan,
+            'end_soc_kwh': np.nan,
+            'delivery_details': ''
+        }
+
+        for col, default in defaults.items():
+            if col not in vehicle_summary.columns:
+                vehicle_summary[col] = default
+
+        vehicle_summary['total_tasks'] = vehicle_summary['total_tasks'].fillna(0).astype(int)
+        vehicle_summary['unique_customers'] = vehicle_summary['unique_customers'].fillna(0).astype(int)
+        vehicle_summary['total_delivered_ton'] = vehicle_summary['total_delivered_ton'].fillna(0.0)
+        vehicle_summary['total_distance_km'] = vehicle_summary['total_distance_km'].fillna(0.0)
+        vehicle_summary['total_travel_time_h'] = vehicle_summary['total_travel_time_h'].fillna(0.0)
+        vehicle_summary['total_energy_kwh'] = vehicle_summary['total_energy_kwh'].fillna(0.0)
+        initial_soc_map = {vid: vehicles[vid]['initial_soc'] for vid in vehicles}
+        vehicle_summary['min_soc_kwh'] = vehicle_summary['min_soc_kwh'].fillna(
+            vehicle_summary['vehicle_id'].map(initial_soc_map))
+        vehicle_summary['end_soc_kwh'] = vehicle_summary['end_soc_kwh'].fillna(
+            vehicle_summary['vehicle_id'].map(initial_soc_map))
+        vehicle_summary['delivery_details'] = vehicle_summary['delivery_details'].fillna('')
+
     final_stats = {
         'total_cost': df_energy['grid_power'].sum() * config.TIME_STEP_HOURS * 0.8 if not df_energy.empty else 0.0,
         'avg_delivery_time': np.random.uniform(3, 5),  # Placeholder
@@ -243,7 +332,8 @@ def run_real_simulation(data, config, initial_routes, task_sequences, strategy='
         'energy_flows': df_energy,
         'grid_load': df_energy['grid_power'] if not df_energy.empty else pd.Series(dtype=float),
         'vehicle_event_log': vehicle_event_log,
-        'customer_service_summary': customer_service_summary
+        'customer_service_summary': customer_service_summary,
+        'vehicle_summary': vehicle_summary
     }
     return final_stats
 
@@ -277,8 +367,9 @@ def main():
     unscheduled_stats = run_real_simulation(data, config, initial_routes, task_sequences, strategy='unscheduled')
 
     visualizations.print_location_and_task_overview(data, task_sequences, output_dir)
+    visualizations.print_vehicle_operation_summary(data, scheduled_stats.get('vehicle_summary'), output_dir)
     visualizations.print_vehicle_operation_details(scheduled_stats.get('vehicle_event_log', []),
-                                                  output_dir, max_vehicles=10)
+                                                  output_dir, max_vehicles=None)
     visualizations.print_customer_service_summary(scheduled_stats.get('customer_service_summary'),
                                                   output_dir)
     visualizations.plot_case1_comparison(scheduled_stats, unscheduled_stats, output_dir)

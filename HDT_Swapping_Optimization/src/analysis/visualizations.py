@@ -245,8 +245,8 @@ def _format_dataframe_for_print(df, float_cols=None, digits=2):
     if float_cols:
         for col in float_cols:
             if col in df.columns:
-                formatters[col] = lambda x, d=digits: f"{x:.{d}f}"
-    return df.to_string(index=False, formatters=formatters)
+                formatters[col] = lambda x, d=digits: "--" if pd.isna(x) else f"{x:.{d}f}"
+            return df.to_string(index=False, formatters=formatters, na_rep='--')
 
 
 def print_vehicle_operation_details(vehicle_event_log, output_dir=None, max_vehicles=10):
@@ -259,13 +259,31 @@ def print_vehicle_operation_details(vehicle_event_log, output_dir=None, max_vehi
     df_events = pd.DataFrame(vehicle_event_log)
     df_events = df_events.sort_values(by=['vehicle_id', 'depart_time']).reset_index(drop=True)
 
+    active_ids = df_events['vehicle_id'].dropna().unique()
+    delivery_counts = (df_events[df_events['task_id'].notna()]
+                       .groupby('vehicle_id')['task_id']
+                       .count()
+                       .sort_values(ascending=False))
+    ordered_ids = list(delivery_counts.index)
+    for vid in active_ids:
+        if vid not in ordered_ids:
+            ordered_ids.append(vid)
+
+    if not ordered_ids:
+        print("暂无车辆动作记录。")
+        return
+
+
     if max_vehicles is not None:
-        selected = df_events['vehicle_id'].dropna().unique()[:max_vehicles]
-        df_display = df_events[df_events['vehicle_id'].isin(selected)]
-        if len(selected) < len(df_events['vehicle_id'].dropna().unique()):
-            print(f"显示前 {len(selected)} 辆车的动作记录 (共 {len(df_events['vehicle_id'].dropna().unique())} 辆车)")
+        selected = ordered_ids[:max_vehicles]
+        if len(ordered_ids) > len(selected):
+            print(f"按任务数量降序展示前 {len(selected)} 辆车的动作记录 (共 {len(ordered_ids)} 辆车执行过动作)")
     else:
-        df_display = df_events
+        selected = ordered_ids
+
+    df_display = df_events[df_events['vehicle_id'].isin(selected)].copy()
+    df_display['vehicle_id'] = pd.Categorical(df_display['vehicle_id'], categories=selected, ordered=True)
+    df_display = df_display.sort_values(by=['vehicle_id', 'depart_time']).reset_index(drop=True)
 
     columns = ['vehicle_id', 'depart_time', 'arrive_time', 'from_node', 'to_node',
                'distance_km', 'travel_time_h', 'soc_start_kwh', 'soc_end_kwh',
@@ -357,6 +375,24 @@ def print_location_and_task_overview(data, task_sequences, output_dir=None):
     else:
         print("暂无配送任务数据。")
 
+    vehicle_rows = []
+    vehicles_info = data.get('vehicles', {})
+    for vid, info in vehicles_info.items():
+        assigned_tasks = task_sequences.get(vid, [])
+        total_demand = sum(tasks.get(tid, {}).get('demand', 0.0) for tid in assigned_tasks)
+        vehicle_rows.append({
+            '车辆': vid,
+            '所属仓库': info.get('depot_id'),
+            '任务数量': len(assigned_tasks),
+            '累计需求(t)': total_demand
+        })
+
+    vehicle_df = pd.DataFrame(vehicle_rows).sort_values('车辆') if vehicle_rows else pd.DataFrame(columns=['车辆'])
+
+    if not vehicle_df.empty:
+        print("\n--- 车辆任务概览 ---")
+        print(_format_dataframe_for_print(vehicle_df, float_cols=['累计需求(t)']))
+
     if output_dir:
         if not depot_df.empty:
             depot_path = os.path.join(output_dir, 'scenario_depots.csv')
@@ -370,6 +406,11 @@ def print_location_and_task_overview(data, task_sequences, output_dir=None):
             task_path = os.path.join(output_dir, 'scenario_tasks.csv')
             tasks_df.to_csv(task_path, index=False)
             print(f"配送任务列表已保存至: {task_path}")
+        if not vehicle_df.empty:
+            vehicle_task_path = os.path.join(output_dir, 'scenario_vehicle_tasks.csv')
+            vehicle_df.to_csv(vehicle_task_path, index=False)
+            print(f"车辆任务概览已保存至: {vehicle_task_path}")
+
 
 
 def print_customer_service_summary(customer_df, output_dir=None):
@@ -396,3 +437,101 @@ def print_customer_service_summary(customer_df, output_dir=None):
         summary_path = os.path.join(output_dir, 'customer_service_summary.csv')
         customer_df.to_csv(summary_path, index=False)
         print(f"客户服务统计已保存至: {summary_path}")
+
+        def print_vehicle_operation_summary(data, vehicle_summary_df, output_dir=None):
+            """Prints aggregated per-vehicle statistics to clarify fleet workload."""
+            print("\n" + "=" * 30 + " 车辆运营总览 " + "=" * 30)
+
+            vehicles_info = data.get('vehicles', {})
+            base_rows = [{
+                'vehicle_id': vid,
+                'home_depot': info.get('depot_id')
+            } for vid, info in vehicles_info.items()]
+            base_df = pd.DataFrame(base_rows)
+
+            if vehicle_summary_df is None or vehicle_summary_df.empty:
+                summary_df = base_df.copy()
+                summary_df['total_tasks'] = 0
+                summary_df['unique_customers'] = 0
+                summary_df['total_delivered_ton'] = 0.0
+                summary_df['total_distance_km'] = 0.0
+                summary_df['total_travel_time_h'] = 0.0
+                summary_df['total_energy_kwh'] = 0.0
+                summary_df['earliest_depart_h'] = np.nan
+                summary_df['latest_return_h'] = np.nan
+                summary_df['min_soc_kwh'] = [vehicles_info.get(row['vehicle_id'], {}).get('initial_soc', np.nan)
+                                             for _, row in summary_df.iterrows()]
+                summary_df['end_soc_kwh'] = summary_df['min_soc_kwh']
+                summary_df['delivery_details'] = ''
+            else:
+                summary_df = vehicle_summary_df.copy()
+                if not summary_df.empty and 'home_depot' not in summary_df.columns:
+                    summary_df = base_df.merge(summary_df, on='vehicle_id', how='left')
+
+            if base_df.empty:
+                if summary_df.empty:
+                    print("暂无车辆信息。")
+                    return
+            else:
+                if summary_df.empty:
+                    summary_df = base_df.copy()
+
+            defaults = {
+                'total_tasks': 0,
+                'unique_customers': 0,
+                'total_delivered_ton': 0.0,
+                'total_distance_km': 0.0,
+                'total_travel_time_h': 0.0,
+                'total_energy_kwh': 0.0,
+                'earliest_depart_h': np.nan,
+                'latest_return_h': np.nan,
+                'min_soc_kwh': np.nan,
+                'end_soc_kwh': np.nan,
+                'delivery_details': ''
+            }
+
+            for col, default in defaults.items():
+                if col not in summary_df.columns:
+                    summary_df[col] = default
+
+            initial_soc_map = {vid: info.get('initial_soc', np.nan) for vid, info in vehicles_info.items()}
+            summary_df['min_soc_kwh'] = summary_df['min_soc_kwh'].fillna(summary_df['vehicle_id'].map(initial_soc_map))
+            summary_df['end_soc_kwh'] = summary_df['end_soc_kwh'].fillna(summary_df['vehicle_id'].map(initial_soc_map))
+
+            summary_df['total_tasks'] = summary_df['total_tasks'].fillna(0).astype(int)
+            summary_df['unique_customers'] = summary_df['unique_customers'].fillna(0).astype(int)
+            summary_df['total_delivered_ton'] = summary_df['total_delivered_ton'].fillna(0.0)
+            summary_df['total_distance_km'] = summary_df['total_distance_km'].fillna(0.0)
+            summary_df['total_travel_time_h'] = summary_df['total_travel_time_h'].fillna(0.0)
+            summary_df['total_energy_kwh'] = summary_df['total_energy_kwh'].fillna(0.0)
+            summary_df['delivery_details'] = summary_df['delivery_details'].fillna('')
+
+            summary_df = summary_df.sort_values(by=['total_tasks', 'total_distance_km'], ascending=False)
+
+            rename_map = {
+                'vehicle_id': '车辆',
+                'home_depot': '所属仓库',
+                'total_tasks': '任务数量',
+                'unique_customers': '服务客户数',
+                'total_delivered_ton': '累计卸货量(t)',
+                'total_distance_km': '累计行驶距离(km)',
+                'total_travel_time_h': '累计行驶时间(h)',
+                'total_energy_kwh': '能耗(kWh)',
+                'earliest_depart_h': '最早出发(h)',
+                'latest_return_h': '最晚返回(h)',
+                'min_soc_kwh': '最低SOC(kWh)',
+                'end_soc_kwh': '返回SOC(kWh)',
+                'delivery_details': '客户任务汇总'
+            }
+
+            float_cols = ['累计卸货量(t)', '累计行驶距离(km)', '累计行驶时间(h)', '能耗(kWh)',
+                          '最早出发(h)', '最晚返回(h)', '最低SOC(kWh)', '返回SOC(kWh)']
+
+            display_df = summary_df.rename(columns=rename_map)
+            print(_format_dataframe_for_print(display_df, float_cols=float_cols))
+
+            if output_dir:
+                os.makedirs(output_dir, exist_ok=True)
+                summary_path = os.path.join(output_dir, 'vehicle_operation_summary.csv')
+                summary_df.to_csv(summary_path, index=False)
+                print(f"车辆运营总览已保存至: {summary_path}")
