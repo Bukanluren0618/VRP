@@ -1,17 +1,3 @@
 vehicle_id,depart_time,from_node,to_node,planned_arrival,distance_km,travel_time_h,soc_start_kwh,load_start_ton,energy_consumed_kwh,strategy,task_id,path_nodes,soc_end_kwh,arrive_time,stop_type,delivered_customer,delivered_amount_ton,load_end_ton
-HDT_1,0.0,Depot_1,Depot_1,0.0,0.0,0.0,200.0,0.0,0.0,scheduled,,15,200.0,0.0,Depot,,0.0,0.0
-HDT_10,0.0,Depot_2,Depot_2,0.0,0.0,0.0,200.0,0.0,0.0,scheduled,,81,200.0,0.0,Depot,,0.0,0.0
-HDT_11,0.0,Depot_5,Depot_5,0.0,0.0,0.0,200.0,0.0,0.0,scheduled,,24,200.0,0.0,Depot,,0.0,0.0
 HDT_12,0.0,Depot_3,Customer_33,0.47752347150451746,14.325704145135523,0.47752347150451746,200.0,2.43,13.201136369742386,scheduled,Task_1,45->21,186.7988636302576,0.5,Customer,Customer_33,2.43,0.0
 HDT_12,0.75,Customer_33,Depot_3,1.2275234715045173,14.325704145135523,0.47752347150451746,186.7988636302576,0.0,11.46056331610842,scheduled,,21->45,175.3383003141492,1.25,Depot,,0.0,0.0
-HDT_13,0.0,Depot_3,Depot_3,0.0,0.0,0.0,200.0,0.0,0.0,scheduled,,45,200.0,0.0,Depot,,0.0,0.0
-HDT_14,0.0,Depot_2,Depot_2,0.0,0.0,0.0,200.0,0.0,0.0,scheduled,,81,200.0,0.0,Depot,,0.0,0.0
-HDT_15,0.0,Depot_4,Depot_4,0.0,0.0,0.0,200.0,0.0,0.0,scheduled,,46,200.0,0.0,Depot,,0.0,0.0
-HDT_2,0.0,Depot_4,Depot_4,0.0,0.0,0.0,200.0,0.0,0.0,scheduled,,46,200.0,0.0,Depot,,0.0,0.0
-HDT_3,0.0,Depot_2,Depot_2,0.0,0.0,0.0,200.0,0.0,0.0,scheduled,,81,200.0,0.0,Depot,,0.0,0.0
-HDT_4,0.0,Depot_5,Depot_5,0.0,0.0,0.0,200.0,0.0,0.0,scheduled,,24,200.0,0.0,Depot,,0.0,0.0
-HDT_5,0.0,Depot_4,Depot_4,0.0,0.0,0.0,200.0,0.0,0.0,scheduled,,46,200.0,0.0,Depot,,0.0,0.0
-HDT_6,0.0,Depot_5,Depot_5,0.0,0.0,0.0,200.0,0.0,0.0,scheduled,,24,200.0,0.0,Depot,,0.0,0.0
-HDT_7,0.0,Depot_5,Depot_5,0.0,0.0,0.0,200.0,0.0,0.0,scheduled,,24,200.0,0.0,Depot,,0.0,0.0
-HDT_8,0.0,Depot_1,Depot_1,0.0,0.0,0.0,200.0,0.0,0.0,scheduled,,15,200.0,0.0,Depot,,0.0,0.0
-HDT_9,0.0,Depot_2,Depot_2,0.0,0.0,0.0,200.0,0.0,0.0,scheduled,,81,200.0,0.0,Depot,,0.0,0.0

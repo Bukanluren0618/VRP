@@ -2,6 +2,7 @@
 
 import os
 import matplotlib.pyplot as plt
+from collections import defaultdict
 import pandas as pd
 import numpy as np
 import seaborn as sns
@@ -77,6 +78,138 @@ def plot_road_network_with_routes(road_network, solution_routes, output_dir, tit
     os.makedirs(output_dir, exist_ok=True)
     plt.savefig(f'{output_dir}/fleet_routing_plan_detailed.pdf', format='pdf', bbox_inches='tight')
     plt.close()
+
+
+def plot_vehicle_routes_on_network(data, vehicle_event_log, output_dir, title="车辆行驶轨迹", strategy_tag="scheduled"):
+    """Visualize executed vehicle routes together with depot and station locations."""
+
+    road_network = data.get('traffic_graph')
+    if road_network is None:
+        print("未找到路网图数据，跳过车辆轨迹可视化。")
+        return
+
+    if not vehicle_event_log:
+        print("暂无车辆动作记录，跳过车辆轨迹可视化。")
+        return
+
+    pos = nx.get_node_attributes(road_network, 'pos')
+    if not pos:
+        pos = nx.spring_layout(road_network, seed=42)
+
+    locations = data.get('locations', {})
+    node_id_by_name = {name: info.get('node_id') for name, info in locations.items()
+                       if info.get('node_id') is not None}
+    node_type_by_id = {info.get('node_id'): info.get('type') for info in locations.values()
+                       if info.get('node_id') is not None}
+
+    depot_nodes = [info.get('node_id') for info in locations.values()
+                   if info.get('type') == 'Depot' and info.get('node_id') is not None]
+    customer_nodes = [info.get('node_id') for info in locations.values()
+                      if info.get('type') == 'Customer' and info.get('node_id') is not None]
+    station_nodes = [info.get('node_id') for info in locations.values()
+                     if info.get('type') == 'SwapStation' and info.get('node_id') is not None]
+
+    travelled_edges = defaultdict(list)
+    visited_nodes = defaultdict(set)
+
+    for event in vehicle_event_log:
+        vid = event.get('vehicle_id')
+        if not vid:
+            continue
+
+        path_nodes = event.get('path_nodes')
+        node_sequence = []
+
+        if isinstance(path_nodes, str) and path_nodes.strip():
+            raw_tokens = [token for token in path_nodes.replace('->', ' ').split() if token]
+            try:
+                node_sequence = [int(float(token)) for token in raw_tokens]
+            except ValueError:
+                node_sequence = []
+        elif isinstance(path_nodes, (list, tuple)):
+            node_sequence = list(path_nodes)
+
+        if len(node_sequence) < 2:
+            from_node = node_id_by_name.get(event.get('from_node'))
+            to_node = node_id_by_name.get(event.get('to_node'))
+            if from_node is not None and to_node is not None:
+                node_sequence = [from_node, to_node]
+
+        if len(node_sequence) < 2:
+            continue
+
+        cleaned_sequence = []
+        for node in node_sequence:
+            if node in road_network:
+                cleaned_sequence.append(node)
+
+        if len(cleaned_sequence) < 2:
+            continue
+
+        edge_list = list(zip(cleaned_sequence[:-1], cleaned_sequence[1:]))
+        if edge_list:
+            travelled_edges[vid].extend(edge_list)
+            visited_nodes[vid].update(cleaned_sequence)
+
+    active_vehicles = [vid for vid, edges in travelled_edges.items() if edges]
+    if not active_vehicles:
+        print("未检测到实际的车辆行驶轨迹，跳过绘图。")
+        return
+
+    plt.style.use('seaborn-v0_8-darkgrid')
+    fig, ax = plt.subplots(figsize=(18, 14))
+
+    nx.draw_networkx_edges(road_network, pos, edge_color='#d0d0d0', alpha=0.25, width=0.8, ax=ax)
+
+    other_nodes = [node for node in road_network.nodes if node not in node_type_by_id]
+    if other_nodes:
+        nx.draw_networkx_nodes(road_network, pos, nodelist=other_nodes, node_color='#f0f0f0',
+                               node_size=20, ax=ax, alpha=0.6)
+
+    if depot_nodes:
+        nx.draw_networkx_nodes(road_network, pos, nodelist=depot_nodes, node_color='#ffcc00',
+                               node_shape='s', node_size=350, ax=ax, label='Depot')
+    if customer_nodes:
+        nx.draw_networkx_nodes(road_network, pos, nodelist=customer_nodes, node_color='#66b3ff',
+                               node_size=120, ax=ax, label='Customer')
+    if station_nodes:
+        nx.draw_networkx_nodes(road_network, pos, nodelist=station_nodes, node_color='#8dd3c7',
+                               node_shape='p', node_size=260, ax=ax, label='Swap Station')
+
+    cmap = plt.cm.get_cmap('tab20', max(len(active_vehicles), 1))
+    for idx, vid in enumerate(sorted(active_vehicles)):
+        edges = travelled_edges[vid]
+        if not edges:
+            continue
+        color = cmap(idx)
+        nx.draw_networkx_edges(road_network, pos, edgelist=edges, edge_color=[color], width=2.5,
+                               ax=ax, label=f'{vid} 路径', arrows=False)
+
+        nodes_to_mark = sorted(visited_nodes[vid])
+        if nodes_to_mark:
+            nx.draw_networkx_nodes(road_network, pos, nodelist=nodes_to_mark, node_size=60,
+                                   node_color=[color], alpha=0.8, ax=ax)
+
+    for name, info in locations.items():
+        node_id = info.get('node_id')
+        if node_id in pos:
+            xy = pos[node_id]
+            ax.text(xy[0] + 0.005, xy[1] + 0.005, name, fontsize=8, ha='left', va='bottom')
+
+    ax.set_title(f"{title}", fontsize=18)
+    ax.axis('off')
+
+    handles, labels = ax.get_legend_handles_labels()
+    if handles:
+        ax.legend(handles=handles, loc='upper right', fontsize=9)
+
+    os.makedirs(output_dir, exist_ok=True)
+    filename = f'vehicle_routes_{strategy_tag}.png'
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_dir, filename), dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"车辆行驶轨迹图已保存至: {os.path.join(output_dir, filename)}")
+
 
 
 # --- 2. Case 1: Scheduled vs. Unscheduled Comparison Visualizations ---
@@ -323,7 +456,7 @@ def print_location_and_task_overview(data, task_sequences, output_dir=None):
     print("\n" + "=" * 30 + " 场景基础信息总览 " + "=" * 30)
 
     locations = data.get('locations', {})
-    depots, customers = [], []
+    depots, customers, stations = [], [], []
     for name, info in locations.items():
         record = {
             '名称': name,
@@ -336,15 +469,25 @@ def print_location_and_task_overview(data, task_sequences, output_dir=None):
             depots.append(record)
         elif info.get('type') == 'Customer':
             customers.append(record)
+        elif info.get('type') == 'SwapStation':
+            stations.append(record)
 
     depot_df = pd.DataFrame(depots).sort_values('名称') if depots else pd.DataFrame(columns=['名称'])
     customer_df = pd.DataFrame(customers).sort_values('名称') if customers else pd.DataFrame(columns=['名称'])
+    station_df = pd.DataFrame(stations).sort_values('名称') if stations else pd.DataFrame(columns=['名称'])
 
     if not depot_df.empty:
         print("\n--- 仓库节点 ---")
         print(_format_dataframe_for_print(depot_df, float_cols=['X坐标', 'Y坐标']))
     else:
         print("未生成仓库节点数据。")
+
+    if not station_df.empty:
+        print("\n--- 换电站节点 ---")
+        print(_format_dataframe_for_print(station_df, float_cols=['X坐标', 'Y坐标']))
+    else:
+        print("未生成换电站节点数据。")
+
 
     if not customer_df.empty:
         print("\n--- 客户节点 ---")
@@ -402,6 +545,10 @@ def print_location_and_task_overview(data, task_sequences, output_dir=None):
             customer_path = os.path.join(output_dir, 'scenario_customers.csv')
             customer_df.to_csv(customer_path, index=False)
             print(f"客户节点信息已保存至: {customer_path}")
+        if not station_df.empty:
+            station_path = os.path.join(output_dir, 'scenario_stations.csv')
+            station_df.to_csv(station_path, index=False)
+            print(f"换电站节点信息已保存至: {station_path}")
         if not tasks_df.empty:
             task_path = os.path.join(output_dir, 'scenario_tasks.csv')
             tasks_df.to_csv(task_path, index=False)

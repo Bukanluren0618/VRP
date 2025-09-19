@@ -18,6 +18,116 @@ from src.simulation.environment import SimulationEnvironment
 from src.analysis import visualizations
 
 
+def _format_table_for_print(df, float_cols=None, digits=2):
+    """Fallback formatter mirroring the visualization helpers."""
+    if df is None or df.empty:
+        return ""
+
+    formatters = {}
+    if float_cols:
+        for col in float_cols:
+            if col in df.columns:
+                formatters[col] = lambda x, d=digits: "--" if pd.isna(x) else f"{x:.{d}f}"
+
+    return df.to_string(index=False, formatters=formatters, na_rep='--')
+
+
+def _print_vehicle_operation_summary(data, vehicle_summary_df, output_dir=None):
+    """Call the visualization summary helper with a graceful fallback."""
+    summary_printer = getattr(visualizations, 'print_vehicle_operation_summary', None)
+    if callable(summary_printer):
+        summary_printer(data, vehicle_summary_df, output_dir)
+        return
+
+    print("\n" + "=" * 30 + " 车辆运营总览 " + "=" * 30)
+    print("（提示：检测到旧版可视化模块缺少车辆运营总览方法，已启用回退输出。）")
+
+    vehicles_info = data.get('vehicles', {})
+    vehicle_ids = list(vehicles_info.keys())
+    base_home_map = {vid: info.get('depot_id') for vid, info in vehicles_info.items()}
+    base_df = pd.DataFrame({
+        'vehicle_id': vehicle_ids,
+        'base_home_depot': [base_home_map.get(vid) for vid in vehicle_ids]
+    })
+
+    if vehicle_summary_df is not None and not vehicle_summary_df.empty:
+        summary_df = base_df.merge(vehicle_summary_df, on='vehicle_id', how='left')
+    else:
+        summary_df = base_df.copy()
+
+    if 'home_depot' in summary_df.columns:
+        summary_df['home_depot'] = summary_df['home_depot'].fillna(
+            summary_df['vehicle_id'].map(base_home_map)
+        )
+    else:
+        summary_df['home_depot'] = summary_df['vehicle_id'].map(base_home_map)
+    summary_df = summary_df.drop(columns=['base_home_depot'], errors='ignore')
+
+    defaults = {
+        'total_tasks': 0,
+        'unique_customers': 0,
+        'total_delivered_ton': 0.0,
+        'total_distance_km': 0.0,
+        'total_travel_time_h': 0.0,
+        'total_energy_kwh': 0.0,
+        'earliest_depart_h': np.nan,
+        'latest_return_h': np.nan,
+        'min_soc_kwh': np.nan,
+        'end_soc_kwh': np.nan,
+        'delivery_details': ''
+    }
+
+    for col, default in defaults.items():
+        if col not in summary_df.columns:
+            summary_df[col] = default
+
+    initial_soc_map = {vid: info.get('initial_soc', np.nan) for vid, info in vehicles_info.items()}
+    summary_df['min_soc_kwh'] = summary_df['min_soc_kwh'].fillna(
+        summary_df['vehicle_id'].map(initial_soc_map)
+    )
+    summary_df['end_soc_kwh'] = summary_df['end_soc_kwh'].fillna(
+        summary_df['vehicle_id'].map(initial_soc_map)
+    )
+
+    summary_df['total_tasks'] = summary_df['total_tasks'].fillna(0).astype(int)
+    summary_df['unique_customers'] = summary_df['unique_customers'].fillna(0).astype(int)
+    summary_df['total_delivered_ton'] = summary_df['total_delivered_ton'].fillna(0.0)
+    summary_df['total_distance_km'] = summary_df['total_distance_km'].fillna(0.0)
+    summary_df['total_travel_time_h'] = summary_df['total_travel_time_h'].fillna(0.0)
+    summary_df['total_energy_kwh'] = summary_df['total_energy_kwh'].fillna(0.0)
+    summary_df['delivery_details'] = summary_df['delivery_details'].fillna('')
+
+    summary_df = summary_df.sort_values(by=['total_tasks', 'total_distance_km'], ascending=False)
+
+    rename_map = {
+        'vehicle_id': '车辆',
+        'home_depot': '所属仓库',
+        'total_tasks': '任务数量',
+        'unique_customers': '服务客户数',
+        'total_delivered_ton': '累计卸货量(t)',
+        'total_distance_km': '累计行驶距离(km)',
+        'total_travel_time_h': '累计行驶时间(h)',
+        'total_energy_kwh': '能耗(kWh)',
+        'earliest_depart_h': '最早出发(h)',
+        'latest_return_h': '最晚返回(h)',
+        'min_soc_kwh': '最低SOC(kWh)',
+        'end_soc_kwh': '返回SOC(kWh)',
+        'delivery_details': '客户任务汇总'
+    }
+
+    float_cols = ['累计卸货量(t)', '累计行驶距离(km)', '累计行驶时间(h)', '能耗(kWh)',
+                  '最早出发(h)', '最晚返回(h)', '最低SOC(kWh)', '返回SOC(kWh)']
+
+    display_df = summary_df.rename(columns=rename_map)
+    print(_format_table_for_print(display_df, float_cols=float_cols))
+
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+        export_path = os.path.join(output_dir, 'vehicle_operation_summary.csv')
+        summary_df.to_csv(export_path, index=False)
+        print(f"车辆运营总览已保存至: {export_path}")
+
+
 # --- FAST HEURISTIC PLANNER (Replaces the slow greedy insertion) ---
 def run_fast_greedy_insertion(data, config):
     """
@@ -256,10 +366,19 @@ def run_real_simulation(data, config, initial_routes, task_sequences, strategy='
                 energy_totals = df_events.groupby('vehicle_id')['energy_consumed_kwh'].sum()
                 depart_times = df_events.groupby('vehicle_id')['depart_time'].min()
                 arrive_times = df_events.groupby('vehicle_id')['arrive_time'].max()
-                min_soc = df_events.groupby('vehicle_id').apply(
-                    lambda g: min(g['soc_start_kwh'].min(), g['soc_end_kwh'].min())
-                )
-                end_soc = df_events.groupby('vehicle_id')['soc_end_kwh'].last()
+                soc_cols = [c for c in ['soc_start_kwh', 'soc_end_kwh'] if c in df_events.columns]
+                if soc_cols:
+                    min_soc = (
+                        df_events.groupby('vehicle_id')[soc_cols]
+                        .min()
+                        .min(axis=1)
+                    )
+                else:
+                    min_soc = pd.Series(dtype=float)
+
+                end_soc = pd.Series(dtype=float)
+                if 'soc_end_kwh' in df_events.columns:
+                    end_soc = df_events.groupby('vehicle_id')['soc_end_kwh'].last()
 
                 customer_breakdown = deliveries.groupby(['vehicle_id', 'delivered_customer']).agg(
                     delivered_ton=('delivered_amount_ton', 'sum'),
@@ -367,11 +486,27 @@ def main():
     unscheduled_stats = run_real_simulation(data, config, initial_routes, task_sequences, strategy='unscheduled')
 
     visualizations.print_location_and_task_overview(data, task_sequences, output_dir)
-    visualizations.print_vehicle_operation_summary(data, scheduled_stats.get('vehicle_summary'), output_dir)
+    _print_vehicle_operation_summary(data, scheduled_stats.get('vehicle_summary'), output_dir)
     visualizations.print_vehicle_operation_details(scheduled_stats.get('vehicle_event_log', []),
                                                   output_dir, max_vehicles=None)
     visualizations.print_customer_service_summary(scheduled_stats.get('customer_service_summary'),
                                                   output_dir)
+
+    visualizations.plot_vehicle_routes_on_network(
+        data,
+        scheduled_stats.get('vehicle_event_log', []),
+        output_dir,
+        title="车辆行驶轨迹（计划调度）",
+        strategy_tag="scheduled"
+    )
+    visualizations.plot_vehicle_routes_on_network(
+        data,
+        unscheduled_stats.get('vehicle_event_log', []),
+        output_dir,
+        title="车辆行驶轨迹（即时调度）",
+        strategy_tag="unscheduled"
+    )
+
     visualizations.plot_case1_comparison(scheduled_stats, unscheduled_stats, output_dir)
 
     # Case 2: Arrival Heatmap (Still uses mock data as it requires complex EV simulation)
