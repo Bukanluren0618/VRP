@@ -118,14 +118,15 @@ def create_operational_model(data, vehicle_ids, task_ids, config, fixed_route=No
     model.weight_propagate_lower = Constraint(model.ARCS_TO_NODES, rule=weight_propagate_lower_rule)
 
     def time_propagate_rule(m, i, j, k):
-        travel_time = data['time_matrix'].loc[i, j]
+        travel_time = float(data['time_matrix'].loc[i, j])
         return m.arrival_time[j, k] >= m.departure_time[i, k] + travel_time - M_time * (1 - m.x[i, j, k])
     model.time_propagate_constr = Constraint(model.ARCS_TO_NODES, rule=time_propagate_rule)
 
     def soc_propagate_upper_rule(m, i, j, k):
         weight_depart_i = m.weight_on_arrival[i, k] - customer_demands.get(i, 0) * m.y[i, k] if i not in m.DEPOT else \
             m.weight_on_arrival[i, k]
-        energy_consumed = data['dist_matrix'].loc[i, j] * (
+        distance = float(data['dist_matrix'].loc[i, j])
+        energy_consumed = distance * (
                 config.HDT_BASE_CONSUMPTION_KWH_PER_KM + weight_depart_i * config.HDT_WEIGHT_CONSUMPTION_KWH_PER_KM_TON)
         soc_depart_i = m.soc_arrival[i, k]
         if i in m.STATIONS: soc_depart_i += m.swap_decision[i, k] * (
@@ -170,7 +171,8 @@ def create_operational_model(data, vehicle_ids, task_ids, config, fixed_route=No
     def tour_duration_rule(m, i, k):
         if i in m.DEPOT: return Constraint.Skip
         depot_id = data['vehicles'][k]['depot_id']
-        return m.tour_duration[k] >= m.departure_time[i, k] + data['time_matrix'].loc[i, depot_id] - M_time * (1 - m.x[i, depot_id, k])
+        travel_time_back = float(data['time_matrix'].loc[i, depot_id])
+        return m.tour_duration[k] >= m.departure_time[i, k] + travel_time_back - M_time * (1 - m.x[i, depot_id, k])
     model.tour_duration_constr = Constraint(model.NODES, model.VEHICLES, rule=tour_duration_rule)
 
     return model
