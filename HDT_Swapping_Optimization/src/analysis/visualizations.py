@@ -301,12 +301,8 @@ def plot_case1_comparison(scheduled_stats, unscheduled_stats, output_dir):
     print("\n--- Case 1: Time Performance Comparison ---")
     print(df_times.to_string())
 
-    # --- 3. Case 2: EV + EHDT Arrival Heatmap ---
     def plot_case2_heatmap(arrival_matrix, output_dir):
-        """
-        Generates the station arrival heatmap for Case 2.
-        Accepts a DataFrame of arrival data.
-        """
+        """Generate the station arrival heatmap for Case 2."""
         print("\n" + "=" * 20 + " Visualizing Case 2: Station Arrival Heatmap " + "=" * 20)
         os.makedirs(output_dir, exist_ok=True)
         plt.figure(figsize=(20, 10))
@@ -318,13 +314,8 @@ def plot_case1_comparison(scheduled_stats, unscheduled_stats, output_dir):
         plt.savefig(f"{output_dir}/case2_arrival_heatmap.pdf", format='pdf', bbox_inches='tight')
         plt.close()
 
-
-    # --- 4. Case 3: Grid Service Strategy Comparison ---
     def plot_case3_comparison(stats_dict, output_dir):
-        """
-        Generates the V2G strategy comparison charts for Case 3.
-        Accepts a dictionary of statistics for each strategy.
-        """
+        """Generate the V2G strategy comparison charts for Case 3."""
         print("\n" + "=" * 20 + " Visualizing Case 3: Grid Service Strategies " + "=" * 20)
         os.makedirs(output_dir, exist_ok=True)
 
@@ -346,6 +337,8 @@ def plot_case1_comparison(scheduled_stats, unscheduled_stats, output_dir):
             palette=palette,
             legend=False,
         )
+
+
     ax.set_title('Case 3: Economic Cost of Different Battery Strategies', fontsize=16)
     ax.set_ylabel('Total Daily Cost (Yuan)')
     plt.xticks(rotation=15, ha='right')
