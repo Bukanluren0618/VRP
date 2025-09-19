@@ -211,6 +211,70 @@ def plot_vehicle_routes_on_network(data, vehicle_event_log, output_dir, title="V
     plt.close()
     print(f"Vehicle route plot saved to: {os.path.join(output_dir, filename)}")
 
+    def plot_full_road_network(data, output_dir, title="Complete Road Network with Key Facilities"):
+        """Plot the entire road network with node identifiers and key facility highlights."""
+
+        road_network = data.get('traffic_graph')
+        if road_network is None:
+            print("未找到路网图数据，跳过完整路网绘制。")
+            return
+
+        pos = nx.get_node_attributes(road_network, 'pos')
+        if not pos:
+            pos = nx.spring_layout(road_network, seed=42)
+
+        locations = data.get('locations', {})
+        node_to_type = {info.get('node_id'): info.get('type') for info in locations.values() if
+                        info.get('node_id') is not None}
+        node_to_name = {info.get('node_id'): name for name, info in locations.items() if
+                        info.get('node_id') is not None}
+
+        plt.style.use('seaborn-v0_8-darkgrid')
+        fig, ax = plt.subplots(figsize=(18, 14))
+
+        nx.draw_networkx_edges(road_network, pos, edge_color='#d0d0d0', alpha=0.6, width=0.8, ax=ax)
+
+        all_nodes = list(road_network.nodes)
+        nx.draw_networkx_nodes(road_network, pos, nodelist=all_nodes, node_color='#b0c4de', node_size=80, alpha=0.85,
+                               ax=ax)
+
+        node_labels = {node: str(node) for node in all_nodes}
+        nx.draw_networkx_labels(road_network, pos, labels=node_labels, font_size=6, ax=ax)
+
+        depot_nodes = [node for node, ntype in node_to_type.items() if ntype == 'Depot']
+        customer_nodes = [node for node, ntype in node_to_type.items() if ntype == 'Customer']
+        station_nodes = [node for node, ntype in node_to_type.items() if ntype == 'SwapStation']
+
+        if depot_nodes:
+            nx.draw_networkx_nodes(road_network, pos, nodelist=depot_nodes, node_color='#ffcc00',
+                                   node_shape='s', node_size=260, edgecolors='black', linewidths=0.8, ax=ax,
+                                   label='Depot')
+        if customer_nodes:
+            nx.draw_networkx_nodes(road_network, pos, nodelist=customer_nodes, node_color='#66b3ff',
+                                   node_size=150, edgecolors='black', linewidths=0.6, ax=ax, label='Customer')
+        if station_nodes:
+            nx.draw_networkx_nodes(road_network, pos, nodelist=station_nodes, node_color='#8dd3c7',
+                                   node_shape='p', node_size=220, edgecolors='black', linewidths=0.6, ax=ax,
+                                   label='Swap Station')
+
+        for node_id, name in node_to_name.items():
+            if node_id in pos:
+                xy = pos[node_id]
+                ax.text(xy[0] + 0.005, xy[1] + 0.005, name, fontsize=7, ha='left', va='bottom', color='#333333')
+
+        ax.set_title(title, fontsize=18)
+        ax.axis('off')
+
+        handles, labels = ax.get_legend_handles_labels()
+        if handles:
+            ax.legend(handles=handles, loc='upper right', fontsize=9)
+
+        os.makedirs(output_dir, exist_ok=True)
+        filepath = os.path.join(output_dir, 'road_network_full.png')
+        plt.tight_layout()
+        plt.savefig(filepath, dpi=300, bbox_inches='tight')
+        plt.close()
+        print(f"Full road network plot saved to: {filepath}")
 
 
 # --- 2. Case 1: Scheduled vs. Unscheduled Comparison Visualizations ---

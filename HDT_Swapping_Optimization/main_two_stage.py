@@ -32,14 +32,15 @@ def _format_table_for_print(df, float_cols=None, digits=2):
     return df.to_string(index=False, formatters=formatters, na_rep='--')
 
 
-def _print_vehicle_operation_summary(data, vehicle_summary_df, output_dir=None):
+def _print_vehicle_operation_summary(data, vehicle_summary_df, output_dir=None, title=None, file_tag=None):
     """Call the visualization summary helper with a graceful fallback."""
     summary_printer = getattr(visualizations, 'print_vehicle_operation_summary', None)
     if callable(summary_printer):
-        summary_printer(data, vehicle_summary_df, output_dir)
+        summary_printer(data, vehicle_summary_df, output_dir, title=title, file_tag=file_tag)
         return
 
-    print("\n" + "=" * 30 + " 车辆运营总览 " + "=" * 30)
+    header = title or "车辆运营总览"
+    print("\n" + "=" * 30 + f" {header} " + "=" * 30)
     print("（提示：检测到旧版可视化模块缺少车辆运营总览方法，已启用回退输出。）")
 
     vehicles_info = data.get('vehicles', {})
@@ -123,7 +124,11 @@ def _print_vehicle_operation_summary(data, vehicle_summary_df, output_dir=None):
 
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)
-        export_path = os.path.join(output_dir, 'vehicle_operation_summary.csv')
+        filename = 'vehicle_operation_summary.csv'
+        if file_tag:
+            filename = f'vehicle_operation_summary_{file_tag}.csv'
+        export_path = os.path.join(output_dir, filename)
+        summary_df.to_csv(export_path, index=False)
         summary_df.to_csv(export_path, index=False)
         print(f"车辆运营总览已保存至: {export_path}")
 
@@ -380,21 +385,30 @@ def run_real_simulation(data, config, initial_routes, task_sequences, strategy='
                 if 'soc_end_kwh' in df_events.columns:
                     end_soc = df_events.groupby('vehicle_id')['soc_end_kwh'].last()
 
-                customer_breakdown = deliveries.groupby(['vehicle_id', 'delivered_customer']).agg(
-                    delivered_ton=('delivered_amount_ton', 'sum'),
-                    num_tasks=('task_id', 'count')
-                ).reset_index()
+                customer_breakdown = (
+                    deliveries.groupby(['vehicle_id', 'delivered_customer'])
+                    .agg(
+                        delivered_ton=('delivered_amount_ton', 'sum'),
+                        num_tasks=('task_id', 'count')
+                    )
+                    .reset_index()
+                )
 
-                def format_customer_rows(group):
-                    rows = []
-                    for _, row in group.sort_values('delivered_ton', ascending=False).iterrows():
-                        customer = row['delivered_customer']
-                        ton = row['delivered_ton']
-                        count = int(row['num_tasks'])
-                        rows.append(f"{customer}:{ton:.2f}t/{count}单")
-                    return "; ".join(rows)
-
-                delivery_details = customer_breakdown.groupby('vehicle_id').apply(format_customer_rows)
+                if not customer_breakdown.empty:
+                    customer_breakdown = customer_breakdown.sort_values(
+                        ['vehicle_id', 'delivered_ton'], ascending=[True, False]
+                    )
+                    customer_breakdown['detail'] = (
+                            customer_breakdown['delivered_customer'].astype(str)
+                            + ":"
+                            + customer_breakdown['delivered_ton'].map(lambda ton: f"{ton:.2f}t")
+                            + "/"
+                            + customer_breakdown['num_tasks'].astype(int).astype(str)
+                            + "单"
+                    )
+                    delivery_details = customer_breakdown.groupby('vehicle_id')['detail'].agg('; '.join)
+                else:
+                    delivery_details = pd.Series(dtype=str)
 
                 vehicle_summary = (
                     vehicle_summary
@@ -486,11 +500,54 @@ def main():
     unscheduled_stats = run_real_simulation(data, config, initial_routes, task_sequences, strategy='unscheduled')
 
     visualizations.print_location_and_task_overview(data, task_sequences, output_dir)
-    _print_vehicle_operation_summary(data, scheduled_stats.get('vehicle_summary'), output_dir)
-    visualizations.print_vehicle_operation_details(scheduled_stats.get('vehicle_event_log', []),
-                                                  output_dir, max_vehicles=None)
-    visualizations.print_customer_service_summary(scheduled_stats.get('customer_service_summary'),
-                                                  output_dir)
+    plot_network_fn = getattr(visualizations, "plot_full_road_network", None)
+    if callable(plot_network_fn):
+        plot_network_fn(
+            data,
+            output_dir,
+            title="Complete Road Network with Key Facilities"
+        )
+    else:
+        print("plot_full_road_network function not found; skipping full road network plot.")
+
+    _print_vehicle_operation_summary(
+        data,
+        scheduled_stats.get('vehicle_summary'),
+        output_dir,
+        title="车辆运营总览（计划调度）"
+    )
+    visualizations.print_vehicle_operation_details(
+        scheduled_stats.get('vehicle_event_log', []),
+        output_dir,
+        max_vehicles=None,
+        title="车辆执行动作明细（计划调度）"
+    )
+    visualizations.print_customer_service_summary(
+        scheduled_stats.get('customer_service_summary'),
+        output_dir,
+        title="客户服务统计（计划调度）"
+    )
+
+    _print_vehicle_operation_summary(
+        data,
+        unscheduled_stats.get('vehicle_summary'),
+        output_dir,
+        title="车辆运营总览（即时调度）",
+        file_tag="unscheduled"
+    )
+    visualizations.print_vehicle_operation_details(
+        unscheduled_stats.get('vehicle_event_log', []),
+        output_dir,
+        max_vehicles=None,
+        title="车辆执行动作明细（即时调度）",
+        file_tag="unscheduled"
+    )
+    visualizations.print_customer_service_summary(
+        unscheduled_stats.get('customer_service_summary'),
+        output_dir,
+        title="客户服务统计（即时调度）",
+        file_tag="unscheduled"
+    )
 
     visualizations.plot_vehicle_routes_on_network(
         data,
