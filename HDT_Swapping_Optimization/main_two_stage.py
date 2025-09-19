@@ -133,9 +133,10 @@ def _print_vehicle_operation_summary(data, vehicle_summary_df, output_dir=None, 
         print(f"车辆运营总览已保存至: {export_path}")
 
         def _ensure_case_visualization_helpers():
-            """保证旧版本可视化模块也能使用 Case 2/3 绘图功能。"""
+            """保证旧版本可视化模块也能使用 Case 2/3 绘图功能，并返回可用的绘图函数。"""
 
-            if not callable(getattr(visualizations, 'plot_case2_heatmap', None)):
+            case2_plotter = getattr(visualizations, 'plot_case2_heatmap', None)
+            if not callable(case2_plotter):
                 print("（提示：检测到旧版可视化模块缺少 Case 2 热力图方法，已启用回退实现。）")
 
                 def _fallback_case2_heatmap(arrival_matrix, output_dir):
@@ -152,10 +153,12 @@ def _print_vehicle_operation_summary(data, vehicle_summary_df, output_dir=None, 
                     plt.savefig(f"{output_dir}/case2_arrival_heatmap.pdf", format='pdf', bbox_inches='tight')
                     plt.close()
 
-                visualizations.plot_case2_heatmap = _fallback_case2_heatmap
+                    case2_plotter = _fallback_case2_heatmap
+                    visualizations.plot_case2_heatmap = case2_plotter
 
-            if not callable(getattr(visualizations, 'plot_case3_comparison', None)):
-                print("（提示：检测到旧版可视化模块缺少 Case 3 对比方法，已启用回退实现。）")
+                case3_plotter = getattr(visualizations, 'plot_case3_comparison', None)
+                if not callable(case3_plotter):
+                    print("（提示：检测到旧版可视化模块缺少 Case 3 对比方法，已启用回退实现。）")
 
                 def _fallback_case3_comparison(stats_dict, output_dir):
                     import matplotlib.pyplot as plt
@@ -209,7 +212,10 @@ def _print_vehicle_operation_summary(data, vehicle_summary_df, output_dir=None, 
                     plt.savefig(f"{output_dir}/case3_peak_shaving_comparison.pdf", format='pdf', bbox_inches='tight')
                     plt.close()
 
-                visualizations.plot_case3_comparison = _fallback_case3_comparison
+                    case3_plotter = _fallback_case3_comparison
+                    visualizations.plot_case3_comparison = case3_plotter
+
+                return case2_plotter, case3_plotter
 
 
 # --- FAST HEURISTIC PLANNER (Replaces the slow greedy insertion) ---
@@ -628,6 +634,8 @@ def main():
         file_tag="unscheduled"
     )
 
+    case2_plotter, case3_plotter = _ensure_case_visualization_helpers()
+
     visualizations.plot_vehicle_routes_on_network(
         data,
         scheduled_stats.get('vehicle_event_log', []),
@@ -651,7 +659,7 @@ def main():
     print("=" * 50)
     arrival_matrix = pd.DataFrame(np.random.randint(0, 15, size=(len(data['stations']), 24)),
                                   index=data['stations'].keys(), columns=range(24))
-    visualizations.plot_case2_heatmap(arrival_matrix, output_dir)
+    case2_plotter(arrival_matrix, output_dir)
 
     # Case 3: V2G Strategy Comparison (Uses mock stats to show visualization)
     print("\n" + "=" * 50);
@@ -660,7 +668,7 @@ def main():
     stats_v2g = {'total_cost': scheduled_stats['total_cost'] * 0.8, 'grid_load': scheduled_stats['grid_load'] - 20}
     stats_no_v2g = {'total_cost': unscheduled_stats['total_cost'], 'grid_load': unscheduled_stats['grid_load']}
     stats_g_only = {'total_cost': scheduled_stats['total_cost'] * 0.9, 'grid_load': scheduled_stats['grid_load'] - 10}
-    visualizations.plot_case3_comparison({
+    case3_plotter({
         '1. BESS for Grid & EV': stats_v2g,
         '2. No Grid Service': stats_no_v2g,
         '3. BESS for Grid Only': stats_g_only
