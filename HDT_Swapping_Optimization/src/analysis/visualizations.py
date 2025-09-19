@@ -80,7 +80,7 @@ def plot_road_network_with_routes(road_network, solution_routes, output_dir, tit
     plt.close()
 
 
-def plot_vehicle_routes_on_network(data, vehicle_event_log, output_dir, title="车辆行驶轨迹", strategy_tag="scheduled"):
+def plot_vehicle_routes_on_network(data, vehicle_event_log, output_dir, title="Vehicle Route Trajectories", strategy_tag="scheduled"):
     """Visualize executed vehicle routes together with depot and station locations."""
 
     road_network = data.get('traffic_graph')
@@ -183,7 +183,8 @@ def plot_vehicle_routes_on_network(data, vehicle_event_log, output_dir, title="�
             continue
         color = cmap(idx)
         nx.draw_networkx_edges(road_network, pos, edgelist=edges, edge_color=[color], width=2.5,
-                               ax=ax, label=f'{vid} 路径', arrows=False)
+                               ax=ax, label=f'{vid} route', arrows=False)
+
 
         nodes_to_mark = sorted(visited_nodes[vid])
         if nodes_to_mark:
@@ -208,7 +209,7 @@ def plot_vehicle_routes_on_network(data, vehicle_event_log, output_dir, title="�
     plt.tight_layout()
     plt.savefig(os.path.join(output_dir, filename), dpi=300, bbox_inches='tight')
     plt.close()
-    print(f"车辆行驶轨迹图已保存至: {os.path.join(output_dir, filename)}")
+    print(f"Vehicle route plot saved to: {os.path.join(output_dir, filename)}")
 
 
 

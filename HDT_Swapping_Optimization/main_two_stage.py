@@ -496,14 +496,14 @@ def main():
         data,
         scheduled_stats.get('vehicle_event_log', []),
         output_dir,
-        title="车辆行驶轨迹（计划调度）",
+        title="Vehicle Routes (Scheduled Dispatch)",
         strategy_tag="scheduled"
     )
     visualizations.plot_vehicle_routes_on_network(
         data,
         unscheduled_stats.get('vehicle_event_log', []),
         output_dir,
-        title="车辆行驶轨迹（即时调度）",
+        title="Vehicle Routes (On-Demand Dispatch)",
         strategy_tag="unscheduled"
     )
 
