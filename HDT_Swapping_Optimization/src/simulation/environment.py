@@ -22,7 +22,12 @@ class SimulationEnvironment:
                 'location': v['depot_id'],  # Current node location
                 'status': 'IDLE',  # IDLE, DRIVING, SWAPPING, UNLOADING
                 'action_end_time': 0.0,
-                'current_route_plan': [],
+                'route_plan': [],
+                'task_plan': [],
+                'current_leg': None,
+                'driving_to': None,
+                'load': 0.0,
+                'initial_load': 0.0,
                 'tasks_completed': [],
                 'total_wait_time': 0.0
             } for vid, v in data['vehicles'].items()

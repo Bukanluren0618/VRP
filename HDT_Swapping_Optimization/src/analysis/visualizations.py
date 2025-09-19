@@ -237,3 +237,162 @@ def plot_case3_comparison(stats_dict, output_dir):
     plt.tight_layout()
     plt.savefig(f"{output_dir}/case3_peak_shaving_comparison.pdf", format='pdf', bbox_inches='tight')
     plt.close()
+
+def _format_dataframe_for_print(df, float_cols=None, digits=2):
+    if df.empty:
+        return ""
+    formatters = {}
+    if float_cols:
+        for col in float_cols:
+            if col in df.columns:
+                formatters[col] = lambda x, d=digits: f"{x:.{d}f}"
+    return df.to_string(index=False, formatters=formatters)
+
+
+def print_vehicle_operation_details(vehicle_event_log, output_dir=None, max_vehicles=10):
+    """Prints a detailed log of vehicle movements and optionally saves it as CSV."""
+    print("\n" + "=" * 30 + " 车辆执行动作明细 " + "=" * 30)
+    if not vehicle_event_log:
+        print("暂无车辆动作记录。")
+        return
+
+    df_events = pd.DataFrame(vehicle_event_log)
+    df_events = df_events.sort_values(by=['vehicle_id', 'depart_time']).reset_index(drop=True)
+
+    if max_vehicles is not None:
+        selected = df_events['vehicle_id'].dropna().unique()[:max_vehicles]
+        df_display = df_events[df_events['vehicle_id'].isin(selected)]
+        if len(selected) < len(df_events['vehicle_id'].dropna().unique()):
+            print(f"显示前 {len(selected)} 辆车的动作记录 (共 {len(df_events['vehicle_id'].dropna().unique())} 辆车)")
+    else:
+        df_display = df_events
+
+    columns = ['vehicle_id', 'depart_time', 'arrive_time', 'from_node', 'to_node',
+               'distance_km', 'travel_time_h', 'soc_start_kwh', 'soc_end_kwh',
+               'load_start_ton', 'load_end_ton', 'delivered_amount_ton',
+               'task_id', 'delivered_customer', 'path_nodes']
+    rename_map = {
+        'vehicle_id': '车辆',
+        'depart_time': '出发时间(h)',
+        'arrive_time': '到达时间(h)',
+        'from_node': '起点',
+        'to_node': '终点',
+        'distance_km': '里程(km)',
+        'travel_time_h': '行驶时间(h)',
+        'soc_start_kwh': '出发SOC(kWh)',
+        'soc_end_kwh': '到达SOC(kWh)',
+        'load_start_ton': '出发载重(t)',
+        'load_end_ton': '到达载重(t)',
+        'delivered_amount_ton': '卸货量(t)',
+        'task_id': '任务ID',
+        'delivered_customer': '服务客户',
+        'path_nodes': '行驶路径节点序列'
+    }
+    float_cols = ['出发时间(h)', '到达时间(h)', '里程(km)', '行驶时间(h)',
+                  '出发SOC(kWh)', '到达SOC(kWh)', '出发载重(t)', '到达载重(t)', '卸货量(t)']
+
+    df_print = df_display[[c for c in columns if c in df_display.columns]].rename(columns=rename_map)
+    print(_format_dataframe_for_print(df_print, float_cols=float_cols, digits=2))
+
+    if output_dir:
+        csv_path = os.path.join(output_dir, 'vehicle_action_log.csv')
+        df_events.to_csv(csv_path, index=False)
+        print(f"车辆动作日志已保存至: {csv_path}")
+
+
+def print_location_and_task_overview(data, task_sequences, output_dir=None):
+    """Outputs depot/customer positions and task assignments."""
+    print("\n" + "=" * 30 + " 场景基础信息总览 " + "=" * 30)
+
+    locations = data.get('locations', {})
+    depots, customers = [], []
+    for name, info in locations.items():
+        record = {
+            '名称': name,
+            '路网节点': info.get('node_id'),
+            '类型': info.get('type'),
+            'X坐标': info.get('pos', (None, None))[0],
+            'Y坐标': info.get('pos', (None, None))[1]
+        }
+        if info.get('type') == 'Depot':
+            depots.append(record)
+        elif info.get('type') == 'Customer':
+            customers.append(record)
+
+    depot_df = pd.DataFrame(depots).sort_values('名称') if depots else pd.DataFrame(columns=['名称'])
+    customer_df = pd.DataFrame(customers).sort_values('名称') if customers else pd.DataFrame(columns=['名称'])
+
+    if not depot_df.empty:
+        print("\n--- 仓库节点 ---")
+        print(_format_dataframe_for_print(depot_df, float_cols=['X坐标', 'Y坐标']))
+    else:
+        print("未生成仓库节点数据。")
+
+    if not customer_df.empty:
+        print("\n--- 客户节点 ---")
+        print(_format_dataframe_for_print(customer_df, float_cols=['X坐标', 'Y坐标']))
+    else:
+        print("未生成客户节点数据。")
+
+    tasks = data.get('tasks', {})
+    task_rows = []
+    for vid, task_list in task_sequences.items():
+        for order, task_id in enumerate(task_list, start=1):
+            info = tasks.get(task_id, {})
+            task_rows.append({
+                '任务ID': task_id,
+                '车辆': vid,
+                '序号': order,
+                '客户': info.get('delivery_to'),
+                '需求量(t)': info.get('demand'),
+                '交付截止时间(h)': info.get('due_time'),
+                '出发仓库': info.get('depot')
+            })
+
+    tasks_df = pd.DataFrame(task_rows).sort_values(['车辆', '序号']) if task_rows else pd.DataFrame(columns=['任务ID'])
+
+    if not tasks_df.empty:
+        print("\n--- 配送任务列表 ---")
+        print(_format_dataframe_for_print(tasks_df, float_cols=['需求量(t)', '交付截止时间(h)']))
+    else:
+        print("暂无配送任务数据。")
+
+    if output_dir:
+        if not depot_df.empty:
+            depot_path = os.path.join(output_dir, 'scenario_depots.csv')
+            depot_df.to_csv(depot_path, index=False)
+            print(f"仓库节点信息已保存至: {depot_path}")
+        if not customer_df.empty:
+            customer_path = os.path.join(output_dir, 'scenario_customers.csv')
+            customer_df.to_csv(customer_path, index=False)
+            print(f"客户节点信息已保存至: {customer_path}")
+        if not tasks_df.empty:
+            task_path = os.path.join(output_dir, 'scenario_tasks.csv')
+            tasks_df.to_csv(task_path, index=False)
+            print(f"配送任务列表已保存至: {task_path}")
+
+
+def print_customer_service_summary(customer_df, output_dir=None):
+    """Prints how many vehicles served each customer and the delivered quantities."""
+    print("\n" + "=" * 30 + " 客户服务统计 " + "=" * 30)
+    if customer_df is None or customer_df.empty:
+        print("暂无客户服务统计数据。")
+        return
+
+    rename_map = {
+        'customer': '客户',
+        'node_id': '路网节点',
+        'pos_x': 'X坐标',
+        'pos_y': 'Y坐标',
+        'vehicles_served': '参与车辆',
+        'num_vehicles_served': '车辆数量',
+        'tasks_delivered': '相关任务',
+        'total_delivered_ton': '累计卸货量(t)'
+    }
+    df_print = customer_df.rename(columns=rename_map)
+    print(_format_dataframe_for_print(df_print, float_cols=['X坐标', 'Y坐标', '累计卸货量(t)']))
+
+    if output_dir:
+        summary_path = os.path.join(output_dir, 'customer_service_summary.csv')
+        customer_df.to_csv(summary_path, index=False)
+        print(f"客户服务统计已保存至: {summary_path}")
