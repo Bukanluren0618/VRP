@@ -20,6 +20,12 @@ NUM_CUSTOMERS = 5
 NUM_TRUCKS = 1 if not IS_QUICK_TEST else 2
 MIN_TASKS_PER_TRUCK = 1
 MAX_TASKS_PER_TRUCK = 12
+ROADS_KNN = 4        # 每个节点额外连接的近邻数
+ROADS_MAX_KM = 6.0   # 可选：邻接边的最大几何长度（km），不过长就不连
+ROAD_MODEL='waxman'
+WAXMAN_ALPHA=0.6
+WAXMAN_BETA=0.08
+
 
 # --- 车辆参数 ---
 HDT_BATTERY_CAPACITY_KWH = 282.0

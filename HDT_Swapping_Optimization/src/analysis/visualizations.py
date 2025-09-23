@@ -14,21 +14,33 @@ plt.rcParams['axes.unicode_minus'] = False
 sns.set_theme(style="whitegrid", font="Arial")
 
 
-def _finalize_figure(
-    fig,
-    output_path,
-    *,
-    close=True,
-    show=True,
-    ensure_dir=True,
-    **savefig_kwargs,
-):
-    """Save a matplotlib figure and show it when the backend supports it."""
+def _normalize_solution_routes(solution_routes, node_info):
+    """归一化 routes: {vehicle_id: [node1, node2, ...]}"""
+    if not isinstance(solution_routes, dict):
+        return {}
+
+    normalized = {}
+    valid_nodes = set(node_info.keys())
+    for vid, seq in solution_routes.items():
+        if not seq:
+            continue
+        cleaned, last = [], object()
+        for n in seq:
+            if n in valid_nodes and n != last:
+                cleaned.append(n)
+                last = n
+        if len(cleaned) >= 2:
+            normalized[vid] = cleaned
+    return normalized
+def _finalize_figure(fig, output_path, *, close=True, show=True, ensure_dir=True, **savefig_kwargs):
+    """保存并显示图像"""
     output_path = Path(output_path)
     if ensure_dir:
         output_path.parent.mkdir(parents=True, exist_ok=True)
-
     fig.savefig(output_path, **savefig_kwargs)
+    print(f"[visualizations] Saved figure to {Path(output_path).resolve()}")
+    if close:
+        plt.close(fig)
 
     backend_name = plt.get_backend().lower()
     canvas = getattr(fig, "canvas", None)
@@ -75,12 +87,10 @@ def plot_road_network_with_routes(
     output_dir="results",
     title="City Road Network and Vehicle Routes Overview",
 ):
-    """Render a full road-network map with depots, swap stations, and routes."""
     print("[visualizations] Generating comprehensive road-network visualization...")
 
     output_dir = Path(output_dir or "results")
     output_dir.mkdir(parents=True, exist_ok=True)
-
     png_path = output_dir / "fleet_routing_plan_overview.png"
     pdf_path = output_dir / "fleet_routing_plan_overview.pdf"
 
@@ -100,222 +110,99 @@ def plot_road_network_with_routes(
         fig, ax = plt.subplots(figsize=(18, 14))
         fig.patch.set_facecolor("white")
 
-        nx.draw_networkx_edges(
-            road_network,
-            pos,
-            ax=ax,
-            width=0.6,
-            alpha=0.4,
-            edge_color="#999999",
-        )
+        # 画路网边
+        nx.draw_networkx_edges(road_network, pos, ax=ax, width=0.6, alpha=0.4, edge_color="#999999")
 
         def draw_nodes(nodes, label, **style):
-            if not nodes:
-                return
-            nx.draw_networkx_nodes(
-                road_network,
-                pos,
-                nodelist=nodes,
-                label=label,
-                ax=ax,
-                **style,
-            )
+            if nodes:
+                nx.draw_networkx_nodes(road_network, pos, nodelist=nodes, label=label, ax=ax, **style)
 
-        # 绘制不同类型节点
-        draw_nodes(
-            background_nodes,
-            "Road Network Node",
-            node_color="#d9d9d9",
-            node_shape="o",
-            node_size=55,
-            edgecolors="#777777",
-            linewidths=0.2,
-        )
-        draw_nodes(
-            depots,
-            "Depot",
-            node_color="#ffcc4d",
-            node_shape="s",
-            node_size=420,
-            edgecolors="#b8860b",
-            linewidths=1.4,
-        )
-        draw_nodes(
-            customers,
-            "Customer",
-            node_color="#74a9cf",
-            node_shape="o",
-            node_size=260,
-            edgecolors="#1f78b4",
-            linewidths=1.0,
-        )
-        draw_nodes(
-            stations,
-            "Battery Swap Station",
-            node_color="#7fc97f",
-            node_shape="p",
-            node_size=360,
-            edgecolors="#3c763d",
-            linewidths=1.2,
-        )
+        # 各类节点
+        draw_nodes(background_nodes, "Road Network Node", node_color="#d9d9d9",
+                   node_shape="o", node_size=55, edgecolors="#777777", linewidths=0.2)
+        draw_nodes(depots, "Depot", node_color="#ffcc4d", node_shape="s",
+                   node_size=420, edgecolors="#b8860b", linewidths=1.4)
+        draw_nodes(customers, "Customer", node_color="#74a9cf", node_shape="o",
+                   node_size=260, edgecolors="#1f78b4", linewidths=1.0)
+        draw_nodes(stations, "Battery Swap Station", node_color="#7fc97f", node_shape="p",
+                   node_size=360, edgecolors="#3c763d", linewidths=1.2)
 
-        # 标签
+        # 节点标签
         node_labels = {node: str(node) for node in road_network.nodes}
-        nx.draw_networkx_labels(
-            road_network,
-            pos,
-            labels=node_labels,
-            font_size=7,
-            font_color="#3d3d3d",
-            ax=ax,
-        )
+        nx.draw_networkx_labels(road_network, pos, labels=node_labels,
+                                font_size=7, font_color="#3d3d3d", ax=ax)
 
-        annotation_offset = {
-            "Depot": (0, 14),
-            "Customer": (0, -16),
-            "SwapStation": (0, 14),
-        }
-        annotation_color = {
-            "Depot": "#b36200",
-            "Customer": "#0b559f",
-            "SwapStation": "#1b7f5f",
-        }
-
+        # 注释名
+        annotation_offset = {"Depot": (0, 14), "Customer": (0, -16), "SwapStation": (0, 14)}
+        annotation_color = {"Depot": "#b36200", "Customer": "#0b559f", "SwapStation": "#1b7f5f"}
         for node in special_nodes:
             info = node_info.get(node, {})
-            name = info.get("name")
-            node_type = info.get("type")
+            name, node_type = info.get("name"), info.get("type")
             if not name or name == str(node):
                 continue
             dx, dy = annotation_offset.get(node_type, (0, 12))
             color = annotation_color.get(node_type, "#444444")
-            ax.annotate(
-                name,
-                xy=pos[node],
-                xytext=(dx, dy),
-                textcoords="offset points",
-                ha="center",
-                fontsize=8.5,
-                color=color,
-                fontweight="bold" if node_type == "Depot" else "normal",
-                bbox=dict(boxstyle="round,pad=0.2", fc="white", ec="none", alpha=0.75),
-            )
+            ax.annotate(name, xy=pos[node], xytext=(dx, dy), textcoords="offset points",
+                        ha="center", fontsize=8.5, color=color,
+                        fontweight="bold" if node_type == "Depot" else "normal",
+                        bbox=dict(boxstyle="round,pad=0.2", fc="white", ec="none", alpha=0.75))
 
-        # 这里注意：_normalize_solution_routes 需要你在别的文件里定义
+        # 路径绘制
         normalized_routes = _normalize_solution_routes(solution_routes, node_info)
         route_handles = []
+        # 名称 -> node_id
+        name_to_id = {info.get("name"): node for node, info in node_info.items() if "name" in info}
 
         if normalized_routes:
             cmap = plt.cm.get_cmap("tab20", max(1, len(normalized_routes)))
             for idx, (vehicle_id, node_sequence) in enumerate(normalized_routes.items()):
                 if len(node_sequence) < 2:
                     continue
-
                 route_color = cmap(idx)
-                first_segment_line = None
+                all_coords = []
 
-                for start_node, end_node in zip(node_sequence[:-1], node_sequence[1:]):
-                    if start_node == end_node:
+                for start_name, end_name in zip(node_sequence[:-1], node_sequence[1:]):
+                    if start_name == end_name:
                         continue
                     try:
-                        path_nodes = nx.shortest_path(
-                            road_network,
-                            source=start_node,
-                            target=end_node,
-                            weight="distance",
-                        )
+                        start_id, end_id = name_to_id[start_name], name_to_id[end_name]
+                        path_nodes = nx.shortest_path(road_network, source=start_id, target=end_id, weight="distance")
                     except (nx.NetworkXNoPath, nx.NodeNotFound):
                         continue
+                    coords = [pos[n] for n in path_nodes if n in pos]
+                    all_coords.extend(coords)
 
-                    coordinates = [pos[n] for n in path_nodes if n in pos]
-                    if len(coordinates) < 2:
-                        continue
+                if len(all_coords) >= 2:
+                    xs, ys = zip(*all_coords)
+                    (line,) = ax.plot(xs, ys, color=route_color, linewidth=2.6,
+                                      alpha=0.95, solid_capstyle="round", zorder=5)
+                    route_handles.append((vehicle_id, line))
 
-                    xs, ys = zip(*coordinates)
-                    (segment_line,) = ax.plot(
-                        xs,
-                        ys,
-                        color=route_color,
-                        linewidth=2.6,
-                        alpha=0.95,
-                        solid_capstyle="round",
-                        zorder=5,
-                    )
+                    # 在路径中间加车辆ID
+                    mid = len(xs) // 2
+                    ax.text(xs[mid], ys[mid], vehicle_id, fontsize=9, color=route_color,
+                            bbox=dict(boxstyle="round,pad=0.2", fc="white", alpha=0.7))
 
-                    if first_segment_line is None:
-                        first_segment_line = segment_line
+                    # 在经过的节点上加序号
+                    for i, (x, y) in enumerate(all_coords):
+                        ax.text(x, y, str(i), fontsize=6, color=route_color)
 
-                if first_segment_line is None:
-                    continue
-
-                route_handles.append((vehicle_id, first_segment_line))
-
-                visited_coords = [pos[n] for n in node_sequence if n in pos]
-                if visited_coords:
-                    xs, ys = zip(*visited_coords)
-                    ax.scatter(
-                        xs,
-                        ys,
-                        s=70,
-                        color=route_color,
-                        edgecolor="white",
-                        linewidth=0.9,
-                        alpha=0.95,
-                        zorder=6,
-                    )
-
-                    start_x, start_y = visited_coords[0]
-                    end_x, end_y = visited_coords[-1]
-                    ax.scatter(
-                        [start_x],
-                        [start_y],
-                        s=200,
-                        marker="*",
-                        color=route_color,
-                        edgecolor="#333333",
-                        linewidth=1.0,
-                        zorder=7,
-                    )
-                    ax.scatter(
-                        [end_x],
-                        [end_y],
-                        s=130,
-                        marker="X",
-                        color=route_color,
-                        edgecolor="#333333",
-                        linewidth=1.0,
-                        zorder=7,
-                    )
-
-            # 图例
-            legend_handles = [
-                Line2D([0], [0], marker="o", color="w", markerfacecolor="#d9d9d9",
-                       markeredgecolor="#777777", markersize=6, label="Road Network Node"),
-                Line2D([0], [0], marker="s", color="w", markerfacecolor="#ffcc4d",
-                       markeredgecolor="#b8860b", markersize=10, label="Depot"),
-                Line2D([0], [0], marker="o", color="w", markerfacecolor="#74a9cf",
-                       markeredgecolor="#1f78b4", markersize=8, label="Customer"),
-                Line2D([0], [0], marker="p", color="w", markerfacecolor="#7fc97f",
-                       markeredgecolor="#3c763d", markersize=9, label="Battery Swap Station"),
-                Line2D([0], [0], marker="*", color="w", markerfacecolor="white",
-                       markeredgecolor="#333333", markersize=12, label="Vehicle Start"),
-                Line2D([0], [0], marker="X", color="w", markerfacecolor="white",
-                       markeredgecolor="#333333", markersize=9, label="Vehicle End"),
-            ]
-
-            for vehicle_id, line in route_handles:
-                legend_handles.append(
-                    Line2D([0], [0], color=line.get_color(), linewidth=2.6, label=f"{vehicle_id} Route")
-                )
-
-            ax.legend(
-                handles=legend_handles,
-                loc="upper right",
-                frameon=True,
-                framealpha=0.92,
-                title="Legend",
-                fontsize=9,
-            )
+        # 图例
+        legend_handles = [
+            Line2D([0], [0], marker="o", color="w", markerfacecolor="#d9d9d9",
+                   markeredgecolor="#777777", markersize=6, label="Road Network Node"),
+            Line2D([0], [0], marker="s", color="w", markerfacecolor="#ffcc4d",
+                   markeredgecolor="#b8860b", markersize=10, label="Depot"),
+            Line2D([0], [0], marker="o", color="w", markerfacecolor="#74a9cf",
+                   markeredgecolor="#1f78b4", markersize=8, label="Customer"),
+            Line2D([0], [0], marker="p", color="w", markerfacecolor="#7fc97f",
+                   markeredgecolor="#3c763d", markersize=9, label="Battery Swap Station"),
+        ]
+        for vehicle_id, line in route_handles:
+            legend_handles.append(Line2D([0], [0], color=line.get_color(),
+                                         linewidth=2.6, label=f"{vehicle_id} Route"))
+        ax.legend(handles=legend_handles, loc="upper right", frameon=True, framealpha=0.92,
+                  title="Legend", fontsize=9)
 
         ax.set_title(title, fontsize=24, fontweight="bold", pad=18)
         ax.set_xlabel("X Coordinate")
@@ -324,10 +211,8 @@ def plot_road_network_with_routes(
         ax.margins(0.05)
 
         plt.tight_layout()
-
         _finalize_figure(fig, png_path, dpi=320, bbox_inches="tight", show=False, close=False)
         _finalize_figure(fig, pdf_path, format="pdf", bbox_inches="tight")
-
         print(f"[visualizations] Road-network map saved to {png_path} (PNG) and {pdf_path} (PDF).")
 
 
