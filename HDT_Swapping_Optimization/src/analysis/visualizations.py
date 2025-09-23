@@ -122,54 +122,63 @@ def plot_road_network_with_routes(
         road_network, pos, ax=ax, width=0.6, alpha=0.4, edge_color='#999999'
     )
 
-    if background_nodes:
-        nx.draw_networkx_nodes(
-            road_network,
-            pos,
-            nodelist=background_nodes,
-            node_color='#d9d9d9',
-            node_size=55,
-            linewidths=0.2,
-            edgecolors='#777777',
-            label='Road Network Node'
-        )
-    if depots:
-        nx.draw_networkx_nodes(
-            road_network,
-            pos,
-            nodelist=depots,
-            node_color='#ffcc4d',
-            node_shape='s',
-            node_size=420,
-            edgecolors='#b8860b',
-            linewidths=1.4,
-            label='Depot'
-        )
+    node_groups = [
+        (
+            'Road Network Node',
+            background_nodes,
+            {
+                'node_color': '#d9d9d9',
+                'node_shape': 'o',
+                'node_size': 55,
+                'edgecolors': '#777777',
+                'linewidths': 0.2,
+            },
+        ),
+        (
+            'Depot',
+            depots,
+            {
+                'node_color': '#ffcc4d',
+                'node_shape': 's',
+                'node_size': 420,
+                'edgecolors': '#b8860b',
+                'linewidths': 1.4,
+            },
+        ),
+        (
+            'Customer',
+            customers,
+            {
+                'node_color': '#74a9cf',
+                'node_shape': 'o',
+                'node_size': 260,
+                'edgecolors': '#1f78b4',
+                'linewidths': 1.0,
+            },
+        ),
+        (
+            'Battery Swap Station',
+            stations,
+            {
+                'node_color': '#7fc97f',
+                'node_shape': 'p',
+                'node_size': 360,
+                'edgecolors': '#3c763d',
+                'linewidths': 1.2,
+            },
+        ),
+    ]
 
-    if customers:
-        nx.draw_networkx_nodes(
-            road_network,
-            pos,
-            nodelist=customers,
-            node_color='#74a9cf',
-            node_shape='o',
-            node_size=260,
-            edgecolors='#1f78b4',
-            linewidths=1.0,
-            label='Customer'
-        )
-    if stations:
-        nx.draw_networkx_nodes(
-            road_network,
-            pos,
-            nodelist=stations,
-            node_color='#7fc97f',
-            node_shape='p',
-            node_size=360,
-            edgecolors='#3c763d',
-            linewidths=1.2,
-            label='Battery Swap Station'
-        )
+    for label, nodes, style in node_groups:
+        if not nodes:
+            continue
+        draw_kwargs = {
+            'nodelist': nodes,
+            'label': label,
+            'ax': ax,
+        }
+        draw_kwargs.update(style)
+        nx.draw_networkx_nodes(road_network, pos, **draw_kwargs)
 
     node_labels = {node: str(node) for node in road_network.nodes}
     nx.draw_networkx_labels(
