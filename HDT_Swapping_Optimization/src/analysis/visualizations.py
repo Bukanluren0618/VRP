@@ -195,7 +195,8 @@ def plot_case3_comparison(stats_dict, output_dir):
                 palette=['#2c7fb8', '#7fcdbb', '#edf8b1'], dodge=False, legend=False, ax=ax)
     ax.set_title('Case 3: Economic Cost of Different Battery Strategies', fontsize=16)
     ax.set_ylabel('Total Daily Cost (Yuan)')
-    ax.set_xticklabels(ax.get_xticklabels(), rotation=15, ha='right')
+    ax.tick_params(axis='x', labelrotation=15)
+    plt.setp(ax.get_xticklabels(), ha='right')
     _finalize_figure(fig, f"{output_dir}/case3_cost_comparison.pdf", format='pdf', bbox_inches='tight')
 
     # --- Peak Shaving Comparison ---
