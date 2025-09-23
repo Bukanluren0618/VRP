@@ -10,8 +10,15 @@ import networkx as nx
 plt.rcParams['font.sans-serif'] = ['SimHei']
 plt.rcParams['axes.unicode_minus'] = False
 sns.set_theme(style="whitegrid", font="Arial")
-
-def _finalize_figure(fig, output_path, *, close=True, **savefig_kwargs):
+def _finalize_figure(
+    fig,
+    output_path,
+    *,
+    close=True,
+    show=True,
+    ensure_dir=True,
+    **savefig_kwargs,
+):
     """Save a matplotlib figure and show it when the backend supports it.
 
     The PyCharm ``backend_interagg`` backend bundled with recent versions of
@@ -21,6 +28,9 @@ def _finalize_figure(fig, output_path, *, close=True, **savefig_kwargs):
     capability, preventing the application from crashing while still exporting
     the visuals.
     """
+    output_path = Path(output_path)
+    if ensure_dir:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
 
     fig.savefig(output_path, **savefig_kwargs)
 
@@ -29,10 +39,18 @@ def _finalize_figure(fig, output_path, *, close=True, **savefig_kwargs):
     manager = getattr(canvas, "manager", None)
     needs_skip = "backend_interagg" in backend_name and not hasattr(canvas, "tostring_rgb")
 
-    if needs_skip:
-        print(f"[visualizations] Skipping interactive display for backend '{backend_name}'. Figure saved to {output_path}.")
+    if not show:
+        print(f"[visualizations] Figure saved to {output_path} (display skipped by caller).")
+    elif needs_skip:
+        print(
+            f"[visualizations] Skipping interactive display for backend '{backend_name}'. "
+            f"Figure saved to {output_path}."
+        )
     elif manager is None or not hasattr(manager, "show"):
-        print(f"[visualizations] Backend '{backend_name}' does not support interactive display. Figure saved to {output_path}.")
+        print(
+            f"[visualizations] Backend '{backend_name}' does not support interactive display. "
+            f"Figure saved to {output_path}."
+        )
     else:
         try:
             manager.show()
@@ -45,61 +63,78 @@ def _finalize_figure(fig, output_path, *, close=True, **savefig_kwargs):
 
 
 # --- 1. Road Network and Vehicle Routes Visualization ---
-def plot_road_network_with_routes(road_network, solution_routes, output_dir, title="Fleet Routing Plan"):
-    """
-    Visualizes the road network and plots the optimized vehicle routes on top.
-    """
-    print("--- Visualizing Fleet Routing Plan ---")
-    plt.style.use('seaborn-v0_8-darkgrid')
-    fig, ax = plt.subplots(figsize=(20, 16))
+def plot_road_network_with_routes(
+    road_network,
+    solution_routes,
+    output_dir="results",
+    title="城市路网与车辆行驶轨迹概览",
+):
+
+
+    print("[visualizations] 正在生成包含车辆轨迹的完整路网图...")
+
+    output_dir = Path(output_dir or "results")
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    png_path = output_dir / "fleet_routing_plan_overview.png"
+    pdf_path = output_dir / "fleet_routing_plan_overview.pdf"
 
     pos = nx.get_node_attributes(road_network, 'pos')
     if not pos:
         pos = nx.spring_layout(road_network, seed=42)
 
-    node_info = nx.get_node_attributes(road_network, 'info')
+    node_info = {node: road_network.nodes[node].get('info', {}) for node in road_network.nodes}
     depots = [node for node, info in node_info.items() if info.get('type') == 'Depot']
     customers = [node for node, info in node_info.items() if info.get('type') == 'Customer']
     stations = [node for node, info in node_info.items() if info.get('type') == 'SwapStation']
 
-    nx.draw_networkx_edges(road_network, pos, alpha=0.2, edge_color='gray', ax=ax)
-    nx.draw_networkx_nodes(road_network, pos, nodelist=depots, node_color='gold', node_shape='s', node_size=400,
-                           label='Depot')
-    nx.draw_networkx_nodes(road_network, pos, nodelist=customers, node_color='skyblue', node_size=200, label='Customer')
-    nx.draw_networkx_nodes(road_network, pos, nodelist=stations, node_color='lightgreen', node_shape='p', node_size=350,
-                           label='Station')
-    nx.draw_networkx_labels(road_network, pos, font_size=8, ax=ax)
+    special_nodes = set(depots + customers + stations)
+    background_nodes = [node for node in road_network.nodes if node not in special_nodes]
 
-    if solution_routes:
-        route_colors = plt.cm.get_cmap('gist_rainbow', len(solution_routes))
-        for i, (vehicle_id, route) in enumerate(solution_routes.items()):
-            if not route or len(route) < 2: continue
+    plt.style.use('seaborn-v0_8-whitegrid')
+    fig, ax = plt.subplots(figsize=(18, 14))
+    fig.patch.set_facecolor('white')
 
-            # This logic needs to be more robust, assuming 'info' contains the name
-            route_node_ids = []
-            for name in route:
-                for node_id, info in node_info.items():
-                    if info.get('name') == name:
-                        route_node_ids.append(node_id)
-                        break
+    nx.draw_networkx_edges(
+        road_network, pos, ax=ax, width=0.6, alpha=0.4, edge_color='#999999'
+    )
 
-            if len(route_node_ids) >= 2:
-                route_edges = list(zip(route_node_ids[:-1], route_node_ids[1:]))
-                nx.draw_networkx_edges(road_network, pos, edgelist=route_edges,
-                                       width=2.5, alpha=0.9, edge_color=route_colors(i),
-                                       label=vehicle_id, ax=ax, connectionstyle='arc3,rad=0.1')
+    if background_nodes:
+        nx.draw_networkx_nodes(
+            road_network,
+            pos,
+        plt.Line2D([0], [0], marker='s', color='w', markerfacecolor='#ffcc4d', markeredgecolor='#b8860b',
+                    markersize=10, label='仓库'),
+        plt.Line2D([0], [0], marker='o', color='w', markerfacecolor='#74a9cf', markeredgecolor='#1f78b4',
+                    markersize=8, label='客户'),
+        plt.Line2D([0], [0], marker='p', color='w', markerfacecolor='#7fc97f', markeredgecolor='#3c763d',
+                    markersize=9, label='换电站'),
+        plt.Line2D([0], [0], marker='*', color='w', markerfacecolor='white', markeredgecolor='#333333',
+                    markersize=12, label='车辆起点'),
+        plt.Line2D([0], [0], marker='X', color='w', markerfacecolor='white', markeredgecolor='#333333',
+                    markersize=9, label='车辆终点')
+    ]
 
-    ax.set_title(title, fontsize=24, fontweight='bold')
-    handles, labels = ax.get_legend_handles_labels()
-    handles.extend([
-        plt.Line2D([0], [0], marker='s', color='w', label='Depot', markerfacecolor='gold', markersize=10),
-        plt.Line2D([0], [0], marker='o', color='w', label='Customer', markerfacecolor='skyblue', markersize=10),
-        plt.Line2D([0], [0], marker='p', color='w', label='Station', markerfacecolor='lightgreen', markersize=10)
-    ])
-    ax.legend(handles=handles, title="Legend")
+    for vehicle_id, line in route_handles:
+        legend_handles.append(
+            plt.Line2D([0], [0], color=line.get_color(), linewidth=2.6, label=f'{vehicle_id} 行驶轨迹')
+        )
+
+    ax.legend(handles=legend_handles, loc='upper right', frameon=True, framealpha=0.92, title='图例', fontsize=9)
+    ax.set_title(title, fontsize=24, fontweight='bold', pad=18)
+    ax.set_xlabel('X 坐标')
+    ax.set_ylabel('Y 坐标')
+    ax.set_aspect('equal', adjustable='datalim')
+    ax.margins(0.05)
 
     plt.tight_layout()
-    _finalize_figure(fig, f'{output_dir}/fleet_routing_plan_detailed.pdf', format='pdf')
+    _finalize_figure(fig, png_path, dpi=320, bbox_inches='tight', show=False, close=False)
+    _finalize_figure(fig, pdf_path, format='pdf', bbox_inches='tight')
+    print(
+        "[visualizations] 路网图已生成并保存到: "
+        f"{png_path} (PNG) 和 {pdf_path} (PDF)。"
+    )
+
 
 
 # --- 2. Case 1: Scheduled vs. Unscheduled Comparison Visualizations ---
