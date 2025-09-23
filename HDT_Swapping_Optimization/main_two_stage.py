@@ -163,10 +163,10 @@ def main():
                 road_network_graph,
                 initial_routes,
                 output_dir="results/road_network",
-                title="road network and vehicle trajectory (two-stage planning）"
+                title="City Road Network with Vehicle Routes (Two-Stage Planning)"
             )
         except Exception as exc:
-            print(f"[visualizations] 生成路网图失败：{exc}")
+            print(f"[visualizations] Failed to generate road-network map: {exc}")
 
 
     total_pv_generation = sum(pv for pv in data['pv_generation'].values())
