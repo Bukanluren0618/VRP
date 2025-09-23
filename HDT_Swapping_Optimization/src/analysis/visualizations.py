@@ -39,15 +39,21 @@ def _finalize_figure(
     manager = getattr(canvas, "manager", None)
     needs_skip = "backend_interagg" in backend_name and not hasattr(canvas, "tostring_rgb")
 
+    message = None
+
+
     if not show:
-        print(f"[visualizations] Figure saved to {output_path} (display skipped by caller).")
+        message = (
+            f"[visualizations] Figure saved to {output_path} "
+            "(display skipped by caller)."
+        )
     elif needs_skip:
-        print(
-            f"[visualizations] Skipping interactive display for backend '{backend_name}'. "
-            f"Figure saved to {output_path}."
+        message = (
+            f"[visualizations] Skipping interactive display for backend "
+            f"'{backend_name}'. Figure saved to {output_path}."
         )
     elif manager is None or not hasattr(manager, "show"):
-        print(
+        message(
             f"[visualizations] Backend '{backend_name}' does not support interactive display. "
             f"Figure saved to {output_path}."
         )
@@ -55,23 +61,40 @@ def _finalize_figure(
         try:
             manager.show()
         except Exception as exc:
-            print(f"[visualizations] Interactive display failed ({exc}). Figure saved to {output_path}.")
+            message = (
+                f"[visualizations] Interactive display failed ({exc}). "
+                f"Figure saved to {output_path}."
+            )
+
+        if message:
+            print(message)
 
     if close:
         plt.close(fig)
-
-
 
 # --- 1. Road Network and Vehicle Routes Visualization ---
 def plot_road_network_with_routes(
     road_network,
     solution_routes,
     output_dir="results",
-    title="城市路网与车辆行驶轨迹概览",
+    title="City Road Network and Vehicle Routes Overview",
 ):
+    """Render a full road-network map with depots, swap stations, and routes.
 
+     Parameters
+     ----------
+     road_network : networkx.Graph
+         Road network graph whose nodes include ``pos`` (coordinates) and
+         ``info`` (metadata) entries.
+     solution_routes : Mapping[str, Sequence]
+         Vehicle routes represented either by location names or node numbers.
+     output_dir : str or Path, optional
+         Destination directory for exported figures. Defaults to ``results``.
+     title : str, optional
+         Title applied to the resulting figure.
+     """
 
-    print("[visualizations] 正在生成包含车辆轨迹的完整路网图...")
+    print("[visualizations] Generating comprehensive road-network visualization...")
 
     output_dir = Path(output_dir or "results")
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -103,39 +126,169 @@ def plot_road_network_with_routes(
         nx.draw_networkx_nodes(
             road_network,
             pos,
-        plt.Line2D([0], [0], marker='s', color='w', markerfacecolor='#ffcc4d', markeredgecolor='#b8860b',
-                    markersize=10, label='仓库'),
-        plt.Line2D([0], [0], marker='o', color='w', markerfacecolor='#74a9cf', markeredgecolor='#1f78b4',
-                    markersize=8, label='客户'),
-        plt.Line2D([0], [0], marker='p', color='w', markerfacecolor='#7fc97f', markeredgecolor='#3c763d',
-                    markersize=9, label='换电站'),
-        plt.Line2D([0], [0], marker='*', color='w', markerfacecolor='white', markeredgecolor='#333333',
-                    markersize=12, label='车辆起点'),
-        plt.Line2D([0], [0], marker='X', color='w', markerfacecolor='white', markeredgecolor='#333333',
-                    markersize=9, label='车辆终点')
-    ]
-
-    for vehicle_id, line in route_handles:
-        legend_handles.append(
-            plt.Line2D([0], [0], color=line.get_color(), linewidth=2.6, label=f'{vehicle_id} 行驶轨迹')
+            nodelist=background_nodes,
+            node_color='#d9d9d9',
+            node_size=55,
+            linewidths=0.2,
+            edgecolors='#777777',
+            label='Road Network Node'
+        )
+    if depots:
+        nx.draw_networkx_nodes(
+            road_network,
+            pos,
+            nodelist=depots,
+            node_color='#ffcc4d',
+            node_shape='s',
+            node_size=420,
+            edgecolors='#b8860b',
+            linewidths=1.4,
+            label='Depot'
         )
 
-    ax.legend(handles=legend_handles, loc='upper right', frameon=True, framealpha=0.92, title='图例', fontsize=9)
+    if customers:
+        nx.draw_networkx_nodes(
+            road_network,
+            pos,
+            nodelist=customers,
+            node_color='#74a9cf',
+            node_shape='o',
+            node_size=260,
+            edgecolors='#1f78b4',
+            linewidths=1.0,
+            label='Customer'
+        )
+    if stations:
+        nx.draw_networkx_nodes(
+            road_network,
+            pos,
+            nodelist=stations,
+            node_color='#7fc97f',
+            node_shape='p',
+            node_size=360,
+            edgecolors='#3c763d',
+            linewidths=1.2,
+            label='Battery Swap Station'
+        )
+
+    node_labels = {node: str(node) for node in road_network.nodes}
+    nx.draw_networkx_labels(
+        road_network,
+        pos,
+        labels=node_labels,
+        font_size=7,
+        font_color='#3d3d3d',
+        ax=ax
+    )
+
+    annotation_offset = {
+        'Depot': (0, 14),
+        'Customer': (0, -16),
+        'SwapStation': (0, 14)
+    }
+    annotation_color = {
+        'Depot': '#b36200',
+        'Customer': '#0b559f',
+        'SwapStation': '#1b7f5f'
+    }
+
+    for node in special_nodes:
+        info = node_info.get(node, {})
+                    linewidth=1.0,
+                    zorder=7
+                )
+                ax.scatter(
+                    [end_pos[0]],
+                    [end_pos[1]],
+                    s=130,
+                    marker='X',
+                    color=route_color,
+                    edgecolor='#333333',
+                    linewidth=1.0,
+                    zorder=7
+                )
+
+    legend_handles = []
+
+    legend_handles.append(
+    plt.Line2D(
+        [0],
+        [0],
+        marker='o',
+        color='w',
+        markerfacecolor='#d9d9d9',
+        markeredgecolor='#777777',
+        markersize=6,
+        label='Road Network Node'
+        )
+    )
+    legend_handles.append(
+    plt.Line2D(
+        [0],
+        [0],
+        marker='s',
+        color='w',
+        markerfacecolor='#ffcc4d',
+        markeredgecolor='#b8860b',
+        markersize=10,
+        label='Depot'
+        )
+    )
+    legend_handles.append(
+    plt.Line2D(
+        [0],
+        [0],
+        marker='p',
+        color='w',
+        markerfacecolor='#7fc97f',
+        markeredgecolor='#3c763d',
+        markersize=9,
+        label='Battery Swap Station'
+        )
+    )
+    legend_handles.append(
+    plt.Line2D(
+        [0],
+        [0],
+        marker='*',
+        color='w',
+        markerfacecolor='white',
+        markeredgecolor='#333333',
+        markersize=12,
+        label='Vehicle Start'
+        )
+    )
+    legend_handles.append(
+    plt.Line2D(
+        [0],
+        [0],
+        marker='X',
+        color='w',
+        markerfacecolor='white',
+        markeredgecolor='#333333',
+        markersize=9,
+        label='Vehicle End'
+        )
+    )
+    for vehicle_id, line in route_handles:
+        legend_handles.append(
+    plt.Line2D([0], [0], color=line.get_color(), linewidth=2.6, label=f'{vehicle_id} Route')
+    )
+
+    ax.legend(handles=legend_handles, loc='upper right', frameon=True, framealpha=0.92, title='Legend', fontsize=9)
     ax.set_title(title, fontsize=24, fontweight='bold', pad=18)
-    ax.set_xlabel('X 坐标')
-    ax.set_ylabel('Y 坐标')
+    ax.set_xlabel('X Coordinate')
+    ax.set_ylabel('Y Coordinate')
     ax.set_aspect('equal', adjustable='datalim')
     ax.margins(0.05)
 
-    plt.tight_layout()
-    _finalize_figure(fig, png_path, dpi=320, bbox_inches='tight', show=False, close=False)
-    _finalize_figure(fig, pdf_path, format='pdf', bbox_inches='tight')
-    print(
-        "[visualizations] 路网图已生成并保存到: "
-        f"{png_path} (PNG) 和 {pdf_path} (PDF)。"
-    )
-
-
+plt.tight_layout()
+_finalize_figure(fig, png_path, dpi=320, bbox_inches='tight', show=False, close=False)
+_finalize_figure(fig, pdf_path, format='pdf', bbox_inches='tight')
+print(
+"[visualizations] Road-network map saved to "
+f"{png_path} (PNG) and {pdf_path} (PDF)."
+)
 
 # --- 2. Case 1: Scheduled vs. Unscheduled Comparison Visualizations ---
 def plot_case1_comparison(scheduled_stats, unscheduled_stats, output_dir):
