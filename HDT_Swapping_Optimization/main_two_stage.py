@@ -149,6 +149,26 @@ def main():
         print("Offline planning failed to produce any valid routes. Terminating.")
         return
 
+    road_network_graph = None
+    if isinstance(data, dict):
+        road_network_graph = data.get('traffic_graph')
+    if road_network_graph is None:
+        road_network_graph = getattr(data_loader, 'road_network', None)
+
+    if road_network_graph is None:
+        print("[visualizations] 无法生成路网图：未找到路网数据。")
+    else:
+        try:
+            visualizations.plot_road_network_with_routes(
+                road_network_graph,
+                initial_routes,
+                output_dir="results/road_network",
+                title="road network and vehicle trajectory (two-stage planning）"
+            )
+        except Exception as exc:
+            print(f"[visualizations] 生成路网图失败：{exc}")
+
+
     total_pv_generation = sum(pv for pv in data['pv_generation'].values())
     total_ev_demand = sum(ev for ev in data['ev_demand_timestep'].values())
     external_loads = {'total_pv': total_pv_generation, 'total_ev': total_ev_demand}
