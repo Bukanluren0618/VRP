@@ -1,0 +1,10 @@
+\ Model Model_copy
+\ LP format - for model browsing. Use MPS format to capture full model detail.
+Minimize
+ 
+Subject To
+ R72128: 0.1 swap_g_e_Station_10_95 + vol_pre_Station_10_95 = 1
+ R72135: vol_pre_Station_10_95 >= 160
+Bounds
+ vol_pre_Station_10_95 free
+End
