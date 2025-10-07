@@ -1,23 +1,34 @@
 # src/common/config_final.py
 
 # --- 核心模拟参数 ---
-IS_QUICK_TEST = False # 设为True以使用少量车辆和任务进行快速测试
-TOTAL_TIME_STEPS = 96  # 总时间步数 (24 hours * 4 steps/hour)
-TIME_STEP_HOURS = 0.25  # 每个时间步的小时数 (15分钟)
-TIME_HORIZON_HOURS = TOTAL_TIME_STEPS * TIME_STEP_HOURS # 总规划时长
+IS_QUICK_TEST = False
+TOTAL_TIME_STEPS = 96
+TIME_STEP_HOURS = 0.25
+TIME_HORIZON_HOURS = TOTAL_TIME_STEPS * TIME_STEP_HOURS
 
 # --- 求解器配置 ---
+SOLVER_NAME = 'gurobi'
 SOLVER_THREADS = 8
 
-# --- 路网和场景生成 ---
+# --- 路网和场景生成 (MODIFIED - 添加了您新的路网生成参数) ---
+ROAD_MODEL = 'waxman'  # 'waxman' 或 'real_world'
+# 如果使用 'real_world', 请设置下面的 CITY_NAME
+CITY_NAME = "Piedmont, California, USA"
+# 如果使用 'waxman', 请设置下面的参数
 CITY_NODE_COUNT = 120
 CITY_GRAPH_RADIUS = 0.8
 CITY_SCALE_KM = 40.0
-NUM_DEPOTS = 5
-NUM_STATIONS = 15
-NUM_CUSTOMERS = 100
-NUM_TRUCKS = 30 if not IS_QUICK_TEST else 2
-MIN_TASKS_PER_TRUCK = 1
+ROADS_KNN = 4 # 每个节点额外连接的近邻数
+ROADS_MAX_KM = 6.0 # 可选:邻接边的最大几何长度(km)，不过长就不连
+WAXMAN_ALPHA = 0.6
+WAXMAN_BETA = 0.08
+
+# 场景内设施数量
+NUM_DEPOTS = 1
+NUM_STATIONS = 3
+NUM_CUSTOMERS = 5 # 减少客户数量以加快测试速度
+NUM_TRUCKS = 2 if not IS_QUICK_TEST else 2
+MIN_TASKS_PER_TRUCK = 4
 MAX_TASKS_PER_TRUCK = 12
 
 # --- 车辆参数 ---
@@ -27,28 +38,33 @@ HDT_EMPTY_WEIGHT_TON = 10.0
 HDT_BASE_CONSUMPTION_KWH_PER_KM = 0.8
 HDT_WEIGHT_CONSUMPTION_KWH_PER_KM_TON = 0.05
 LOADING_UNLOADING_TIME_HOURS = 0.5
-SWAP_DURATION_HOURS = 0.25 # 15分钟
+SWAP_DURATION_HOURS = 0.25
 
 # --- 成本和惩罚 ---
 MANPOWER_COST_PER_HOUR = 80.0
 FIXED_SWAP_COST = 50.0
 DELAY_PENALTY_PER_HOUR = 200.0
-UNASSIGNED_TASK_PENALTY = 10000.0
-GRID_ELECTRICITY_COST_YUAN_PER_KWH = 1.2 # 基础电价，后面会被分时电价覆盖
+UNASSIGNED_TASK_PENALTY = 100000.0
 
-# --- 换电站能源参数 (NEW) ---
-BESS_CAPACITY_KWH = 2000.0 # 储能系统 (BESS) 容量
-BESS_MAX_POWER_KW = 500.0  # BESS 最大充放电功率
-BESS_EFFICIENCY = 0.95     # BESS 充放电效率
-PV_PEAK_POWER_KW = 400.0   # 光伏峰值功率
-PV_CLOUD_NOISE_LEVEL = 0.4 # 光伏波动噪声水平
-EV_DEMAND_PEAK_KW = 600.0  # 外部EV充电需求峰值功率
+# --- 换电站能源参数 ---
+BESS_CAPACITY_KWH = 2000.0
+BESS_MAX_POWER_KW = 500.0
+BESS_EFFICIENCY = 0.95
+PV_PEAK_POWER_KW = 400.0
+PV_CLOUD_NOISE_LEVEL = 0.4
+EV_DEMAND_PEAK_KW = 0  # 设为0以关闭EV需求
 EV_DEMAND_NOISE_LEVEL = 0.2
 
-# --- 动态警报与重规划参数 (for future batches) ---
-STATION_QUEUE_ALARM_THRESHOLD = 5 # 换电站排队车辆数警报阈值
-GRID_BUS_ALARM_MW = 10.0          # 电网节点负载警报阈值 (兆瓦)
-TRAFFIC_JAM_PROBABILITY = 0.05    # 模拟交通拥堵的概率
+# --- 电压安全&热稳定参数 ---
+VOLTAGE_MAX = 220
+VOLTAGE_MIN = 160
+VOLTAGE_DESCEND = 0.05
+THERMAL_STABILITY_MAX = PV_PEAK_POWER_KW * 0.8
+
+# --- 动态警报与重规划参数 ---
+STATION_QUEUE_ALARM_THRESHOLD = 5
+GRID_BUS_ALARM_MW = 10.0
+TRAFFIC_JAM_PROBABILITY = 0.05
 
 # --- 快速测试用的参数覆盖 ---
 if IS_QUICK_TEST:
@@ -57,7 +73,8 @@ if IS_QUICK_TEST:
     NUM_STATIONS = 3
     TOTAL_TIME_STEPS = 24
     TIME_HORIZON_HOURS = TOTAL_TIME_STEPS * TIME_STEP_HOURS
+    CITY_NODE_COUNT = 30
 
 # --- DO NOT EDIT BELOW (Derived Parameters) ---
 NUM_VEHICLES_TO_USE = NUM_TRUCKS
-NUM_TASKS_TO_USE = 1000 # Use a large number to effectively use all generated tasks
+NUM_TASKS_TO_USE = 1000

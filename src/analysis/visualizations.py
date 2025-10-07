@@ -26,9 +26,7 @@ def safe_value(var_or_data):
 
 # --- Figure 1: Road network and fleet routes ---
 def plot_road_network_with_routes(road_network, solution_routes, data, output_dir, title="Fleet Routing Plan"):
-    """
-    Visualize the road network and overlay optimized vehicle routes.
-    """
+    """Visualize the road network, facilities and vehicle trajectories."""
     print("-> Generating Plot 1: Road Network and Fleet Routes...")
     plt.style.use("seaborn-v0_8-darkgrid")
     fig, ax = plt.subplots(figsize=(24, 20))
@@ -37,49 +35,173 @@ def plot_road_network_with_routes(road_network, solution_routes, data, output_di
     if not pos:
         pos = nx.spring_layout(road_network, seed=42)
 
+        # Draw the base road network
+        nx.draw_networkx_edges(road_network, pos, alpha=0.2, edge_color="gray", ax=ax)
+        nx.draw_networkx_nodes(
+            road_network,
+            pos,
+            node_size=80,
+            node_color="lightgray",
+            alpha=0.7,
+            label="Road Node",
+        )
+
     # Extract node types from data
     locations = data["locations"]
     depots = [info["node_id"] for info in locations.values() if info["type"] == "Depot"]
     customers = [info["node_id"] for info in locations.values() if info["type"] == "Customer"]
     stations = [info["node_id"] for info in locations.values() if info["type"] == "SwapStation"]
 
-    nx.draw_networkx_edges(road_network, pos, alpha=0.2, edge_color="gray", ax=ax)
-    nx.draw_networkx_nodes(
-        road_network, pos, nodelist=depots, node_color="red", node_shape="s", node_size=400, label="Depot"
-    )
-    nx.draw_networkx_nodes(
-        road_network, pos, nodelist=customers, node_color="skyblue", node_size=200, label="Customer"
-    )
-    nx.draw_networkx_nodes(
-        road_network, pos, nodelist=stations, node_color="lightgreen", node_shape="p", node_size=350, label="Station"
-    )
+    # Overlay facility nodes with distinctive markers
+    if depots:
+        nx.draw_networkx_nodes(
+            road_network,
+            pos,
+            nodelist=depots,
+            node_color="red",
+            node_shape="s",
+            node_size=420,
+            label="Depot",
+            edgecolors="black",
+            linewidths=1.2,
+        )
+    if stations:
+        nx.draw_networkx_nodes(
+            road_network,
+            pos,
+            nodelist=stations,
+            node_color="lightgreen",
+            node_shape="p",
+            node_size=360,
+            label="Swap Station",
+            edgecolors="black",
+            linewidths=1.2,
+        )
+    if customers:
+        nx.draw_networkx_nodes(
+            road_network,
+            pos,
+            nodelist=customers,
+            node_color="skyblue",
+            node_size=260,
+            label="Customer",
+            edgecolors="black",
+            linewidths=0.8,
+        )
 
-    # Node labels
-    labels = {info["node_id"]: name for name, info in locations.items()}
-    nx.draw_networkx_labels(road_network, pos, labels=labels, font_size=8, ax=ax)
+    # Number every road node
+    for node_id, (x_coord, y_coord) in pos.items():
+        ax.text(
+            x_coord,
+            y_coord,
+            str(node_id),
+            fontsize=6,
+            color="dimgray",
+            ha="center",
+            va="center",
+            alpha=0.8,
+        )
 
-    # Routes
-    if solution_routes:
-        route_colors = plt.cm.get_cmap("gist_rainbow", len(solution_routes))
-        for i, (vehicle_id, route) in enumerate(solution_routes.items()):
-            if not route or len(route) < 2:
-                continue
-            route_node_ids = [locations[name]["node_id"] for name in route]
-            route_edges = list(zip(route_node_ids[:-1], route_node_ids[1:]))
-            nx.draw_networkx_edges(
-                road_network,
-                pos,
-                edgelist=route_edges,
-                width=2.5,
-                alpha=0.9,
-                edge_color=route_colors(i),
-                label=vehicle_id,
-                ax=ax,
-                connectionstyle="arc3,rad=0.1",
+    # Facility name labels (slightly offset to improve readability)
+    facility_labels = {info["node_id"]: name for name, info in locations.items()}
+    for node_id, label in facility_labels.items():
+        if node_id in pos:
+            ax.text(
+                pos[node_id][0],
+                pos[node_id][1] + 0.015,
+                label,
+                fontsize=8,
+                fontweight="bold",
+                color="black",
+                ha="center",
             )
 
+    # Vehicle routes
+    if solution_routes:
+        route_colors = plt.cm.get_cmap("gist_rainbow", max(len(solution_routes), 1))
+        for i, (vehicle_id, route_info) in enumerate(solution_routes.items()):
+            segments = []
+            if isinstance(route_info, dict):
+                segments = route_info.get("segments") or []
+                if not segments:
+                    node_path = route_info.get("node_path")
+                    locations = route_info.get("locations")
+                    if node_path:
+                        segments = [{"node_path": node_path, "locations": locations}]
+
+            if not segments:
+                continue
+
+            for seg_idx, segment in enumerate(segments, start=1):
+                node_path = segment.get("node_path") or []
+                if len(node_path) < 2:
+                    continue
+
+                route_edges = list(zip(node_path[:-1], node_path[1:]))
+                nx.draw_networkx_edges(
+                    road_network,
+                    pos,
+                    edgelist=route_edges,
+                    width=3.0,
+                    alpha=0.9,
+                    edge_color=[route_colors(i)] * len(route_edges),
+                    ax=ax,
+                )
+
+                start_node = node_path[0]
+                end_node = node_path[-1]
+                start_label = f"{vehicle_id} S{seg_idx} Start"
+                end_label = f"{vehicle_id} S{seg_idx} End"
+
+                if start_node in pos:
+                    ax.scatter(
+                        [pos[start_node][0]],
+                        [pos[start_node][1]],
+                        color=route_colors(i),
+                        marker="o",
+                        s=160,
+                        edgecolors="white",
+                        linewidths=1.2,
+                        zorder=5,
+                    )
+                    ax.text(
+                        pos[start_node][0],
+                        pos[start_node][1] - 0.02,
+                        start_label,
+                        fontsize=7,
+                        color=route_colors(i),
+                        ha="center",
+                        fontweight="bold",
+                    )
+
+                if end_node in pos:
+                    ax.scatter(
+                        [pos[end_node][0]],
+                        [pos[end_node][1]],
+                        color=route_colors(i),
+                        marker="X",
+                        s=160,
+                        edgecolors="white",
+                        linewidths=1.2,
+                        zorder=5,
+                    )
+                    if end_node != start_node:
+                        ax.text(
+                            pos[end_node][0],
+                            pos[end_node][1] - 0.02,
+                            end_label,
+                            fontsize=7,
+                            color=route_colors(i),
+                            ha="center",
+                            fontweight="bold",
+                        )
+
+
     ax.set_title(title, fontsize=28, fontweight="bold")
-    ax.legend(title="Legend")
+    ax.set_axis_off()
+    handles, labels = ax.get_legend_handles_labels()
+    if handles:
+        ax.legend(handles, labels, title="Legend", loc="upper right")
     plt.tight_layout()
     os.makedirs(output_dir, exist_ok=True)
     plt.savefig(f"{output_dir}/1_fleet_routing_plan.pdf", format="pdf")

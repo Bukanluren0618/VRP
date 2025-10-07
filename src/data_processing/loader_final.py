@@ -46,8 +46,11 @@ class DataLoader:
 
         # --- MODIFIED: 根据config选择路网模型 ---
         if config.ROAD_MODEL == 'waxman':
-            G, pos = road_network.generate_city_like_graph(config.CITY_NODE_COUNT, alpha=config.WAXMAN_ALPHA,
-                                                           beta=config.WAXMAN_BETA)
+            G, pos = road_network.generate_city_like_graph(
+                config.CITY_NODE_COUNT,
+                alpha=config.WAXMAN_ALPHA,
+                beta=config.WAXMAN_BETA
+            )
             scaling_factor = config.CITY_SCALE_KM
         elif config.ROAD_MODEL == 'real_world':
             G = road_network.generate_real_road_network(city_name=config.CITY_NAME)
@@ -57,6 +60,9 @@ class DataLoader:
             raise ValueError(f"未知的路网模型: {config.ROAD_MODEL}")
 
         self.road_network = G
+
+        # 确保所有节点都带有位置属性，便于可视化
+        nx.set_node_attributes(G, pos, 'pos')
 
         try:
             net = pp.networks.case118()
@@ -107,6 +113,7 @@ class DataLoader:
 
         dist_matrix_renamed = dist_matrix_raw.rename(index=node_id_to_name_map, columns=node_id_to_name_map)
         dist_matrix = dist_matrix_renamed * scaling_factor
+        path_matrix_named = path_matrix_nodes.rename(index=node_id_to_name_map, columns=node_id_to_name_map)
 
         avg_speed_kmh = 40.0
         time_df = dist_matrix / avg_speed_kmh
@@ -147,10 +154,12 @@ class DataLoader:
         self.model_data = {
             'traffic_graph': G, 'locations': locations_data, 'tasks': tasks, 'vehicles': vehicles,
             'stations': stations_info,
-            'dist_matrix': dist_matrix, 'time_matrix': time_df, 'path_matrix': None,
+            'dist_matrix': dist_matrix, 'time_matrix': time_df, 'path_matrix': path_matrix_named,
             'power_grid_net': net, 'station_to_bus_map': station_to_bus_map, 'time_steps': list(time_steps),
             'electricity_prices': electricity_prices, 'pv_generation': pv_generation,
-            'ev_demand_timestep': ev_demand_timestep
+            'ev_demand_timestep': ev_demand_timestep,
+            'road_network_pos': pos,
+            'node_id_to_name_map': node_id_to_name_map
         }
         print("=" * 30);
         print("场景数据创建完成！");
