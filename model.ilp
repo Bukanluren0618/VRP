@@ -3,8 +3,170 @@
 Minimize
  
 Subject To
- R72128: 0.1 swap_g_e_Station_10_95 + vol_pre_Station_10_95 = 1
- R72135: vol_pre_Station_10_95 >= 160
+ R33884: vv_HDT_2_Task_1 + vv_HDT_4_Task_1 - df_Task_1 = 0
+ R33885: df_Task_1 = 1
+ R33892: vv_HDT_2_Task_5 + vv_HDT_4_Task_5 - df_Task_5 = 0
+ R33893: df_Task_5 = 1
+ R33894: vv_HDT_2_Task_6 + vv_HDT_4_Task_6 - df_Task_6 = 0
+ R33895: df_Task_6 = 1
+ R33898: vv_HDT_2_Task_8 + vv_HDT_4_Task_8 - df_Task_8 = 0
+ R33899: df_Task_8 = 1
+ R33906: vv_HDT_2_Task_12 + vv_HDT_4_Task_12 - df_Task_12 = 0
+ R33907: df_Task_12 = 1
+ R33908: vv_HDT_2_Task_13 + vv_HDT_4_Task_13 - df_Task_13 = 0
+ R33909: df_Task_13 = 1
+ R33910: vv_HDT_2_Task_14 + vv_HDT_4_Task_14 - df_Task_14 = 0
+ R33911: df_Task_14 = 1
+ R33912: vv_HDT_2_Task_15 + vv_HDT_4_Task_15 - df_Task_15 = 0
+ R33913: df_Task_15 = 1
+ R33916: vv_HDT_2_Task_17 + vv_HDT_4_Task_17 - df_Task_17 = 0
+ R33917: df_Task_17 = 1
+ R33922: vv_HDT_2_Task_20 + vv_HDT_4_Task_20 - df_Task_20 = 0
+ R33923: df_Task_20 = 1
+ R33924: vv_HDT_2_Task_21 + vv_HDT_4_Task_21 - df_Task_21 = 0
+ R33925: df_Task_21 = 1
+ R33940: vv_HDT_2_Task_29 + vv_HDT_4_Task_29 - df_Task_29 = 0
+ R33941: df_Task_29 = 1
+ R33942: vv_HDT_2_Task_30 + vv_HDT_4_Task_30 - df_Task_30 = 0
+ R33943: df_Task_30 = 1
+ R33944: vv_HDT_2_Task_31 + vv_HDT_4_Task_31 - df_Task_31 = 0
+ R33945: df_Task_31 = 1
+ R33948: vv_HDT_2_Task_33 + vv_HDT_4_Task_33 - df_Task_33 = 0
+ R33949: df_Task_33 = 1
+ R33958: vv_HDT_2_Task_38 + vv_HDT_4_Task_38 - df_Task_38 = 0
+ R33959: df_Task_38 = 1
+ R33960: vv_HDT_2_Task_39 + vv_HDT_4_Task_39 - df_Task_39 = 0
+ R33961: df_Task_39 = 1
+ R33964: vv_HDT_2_Task_41 + vv_HDT_4_Task_41 - df_Task_41 = 0
+ R33965: df_Task_41 = 1
+ R33966: vv_HDT_2_Task_42 + vv_HDT_4_Task_42 - df_Task_42 = 0
+ R33967: df_Task_42 = 1
+ R33968: vv_HDT_2_Task_43 + vv_HDT_4_Task_43 - df_Task_43 = 0
+ R33969: df_Task_43 = 1
+ R33976: vv_HDT_2_Task_47 + vv_HDT_4_Task_47 - df_Task_47 = 0
+ R33977: df_Task_47 = 1
+ R33978: vv_HDT_2_Task_48 + vv_HDT_4_Task_48 - df_Task_48 = 0
+ R33979: df_Task_48 = 1
+ R33982: vv_HDT_2_Task_50 + vv_HDT_4_Task_50 - df_Task_50 = 0
+ R33983: df_Task_50 = 1
+ R33986: vv_HDT_2_Task_52 + vv_HDT_4_Task_52 - df_Task_52 = 0
+ R33987: df_Task_52 = 1
+ R33992: vv_HDT_2_Task_55 + vv_HDT_4_Task_55 - df_Task_55 = 0
+ R33993: df_Task_55 = 1
+ R34002: vv_HDT_2_Task_60 + vv_HDT_4_Task_60 - df_Task_60 = 0
+ R34003: df_Task_60 = 1
+ R34004: vv_HDT_2_Task_61 + vv_HDT_4_Task_61 - df_Task_61 = 0
+ R34005: df_Task_61 = 1
+ R34010: vv_HDT_2_Task_64 + vv_HDT_4_Task_64 - df_Task_64 = 0
+ R34011: df_Task_64 = 1
+ R34014: vv_HDT_2_Task_66 + vv_HDT_4_Task_66 - df_Task_66 = 0
+ R34015: df_Task_66 = 1
+ R34018: vv_HDT_2_Task_68 + vv_HDT_4_Task_68 - df_Task_68 = 0
+ R34019: df_Task_68 = 1
+ R34020: vv_HDT_2_Task_69 + vv_HDT_4_Task_69 - df_Task_69 = 0
+ R34021: df_Task_69 = 1
+ R34022: vv_HDT_2_Task_70 + vv_HDT_4_Task_70 - df_Task_70 = 0
+ R34023: df_Task_70 = 1
+ R34026: vv_HDT_2_Task_72 + vv_HDT_4_Task_72 - df_Task_72 = 0
+ R34027: df_Task_72 = 1
+ R34028: vv_HDT_2_Task_73 + vv_HDT_4_Task_73 - df_Task_73 = 0
+ R34029: df_Task_73 = 1
+ R34032: vv_HDT_2_Task_75 + vv_HDT_4_Task_75 - df_Task_75 = 0
+ R34033: df_Task_75 = 1
+ R34034: vv_HDT_2_Task_76 + vv_HDT_4_Task_76 - df_Task_76 = 0
+ R34035: df_Task_76 = 1
+ R34042: vv_HDT_2_Task_80 + vv_HDT_4_Task_80 - df_Task_80 = 0
+ R34043: df_Task_80 = 1
+ R34044: vv_HDT_2_Task_81 + vv_HDT_4_Task_81 - df_Task_81 = 0
+ R34045: df_Task_81 = 1
+ R34048: vv_HDT_2_Task_83 + vv_HDT_4_Task_83 - df_Task_83 = 0
+ R34049: df_Task_83 = 1
+ R34054: vv_HDT_2_Task_86 + vv_HDT_4_Task_86 - df_Task_86 = 0
+ R34055: df_Task_86 = 1
+ R34058: vv_HDT_2_Task_88 + vv_HDT_4_Task_88 - df_Task_88 = 0
+ R34059: df_Task_88 = 1
+ R89326: - 20 v_HDT_2 + vv_HDT_2_Task_1 + vv_HDT_2_Task_3 + vv_HDT_2_Task_5
+   + vv_HDT_2_Task_6 + vv_HDT_2_Task_7 + vv_HDT_2_Task_8 + vv_HDT_2_Task_9
+   + vv_HDT_2_Task_10 + vv_HDT_2_Task_11 + vv_HDT_2_Task_12
+   + vv_HDT_2_Task_13 + vv_HDT_2_Task_14 + vv_HDT_2_Task_15
+   + vv_HDT_2_Task_16 + vv_HDT_2_Task_17 + vv_HDT_2_Task_19
+   + vv_HDT_2_Task_20 + vv_HDT_2_Task_21 + vv_HDT_2_Task_22
+   + vv_HDT_2_Task_27 + vv_HDT_2_Task_28 + vv_HDT_2_Task_29
+   + vv_HDT_2_Task_30 + vv_HDT_2_Task_31 + vv_HDT_2_Task_32
+   + vv_HDT_2_Task_33 + vv_HDT_2_Task_34 + vv_HDT_2_Task_38
+   + vv_HDT_2_Task_39 + vv_HDT_2_Task_40 + vv_HDT_2_Task_41
+   + vv_HDT_2_Task_42 + vv_HDT_2_Task_43 + vv_HDT_2_Task_44
+   + vv_HDT_2_Task_46 + vv_HDT_2_Task_47 + vv_HDT_2_Task_48
+   + vv_HDT_2_Task_50 + vv_HDT_2_Task_52 + vv_HDT_2_Task_53
+   + vv_HDT_2_Task_54 + vv_HDT_2_Task_55 + vv_HDT_2_Task_57
+   + vv_HDT_2_Task_60 + vv_HDT_2_Task_61 + vv_HDT_2_Task_63
+   + vv_HDT_2_Task_64 + vv_HDT_2_Task_65 + vv_HDT_2_Task_66
+   + vv_HDT_2_Task_68 + vv_HDT_2_Task_69 + vv_HDT_2_Task_70
+   + vv_HDT_2_Task_72 + vv_HDT_2_Task_73 + vv_HDT_2_Task_75
+   + vv_HDT_2_Task_76 + vv_HDT_2_Task_77 + vv_HDT_2_Task_80
+   + vv_HDT_2_Task_81 + vv_HDT_2_Task_83 + vv_HDT_2_Task_84
+   + vv_HDT_2_Task_86 + vv_HDT_2_Task_87 + vv_HDT_2_Task_88 <= 0
+ R103254: - 20 v_HDT_4 + vv_HDT_4_Task_1 + vv_HDT_4_Task_3
+   + vv_HDT_4_Task_5 + vv_HDT_4_Task_6 + vv_HDT_4_Task_7 + vv_HDT_4_Task_8
+   + vv_HDT_4_Task_9 + vv_HDT_4_Task_10 + vv_HDT_4_Task_11
+   + vv_HDT_4_Task_12 + vv_HDT_4_Task_13 + vv_HDT_4_Task_14
+   + vv_HDT_4_Task_15 + vv_HDT_4_Task_16 + vv_HDT_4_Task_17
+   + vv_HDT_4_Task_19 + vv_HDT_4_Task_20 + vv_HDT_4_Task_21
+   + vv_HDT_4_Task_22 + vv_HDT_4_Task_27 + vv_HDT_4_Task_28
+   + vv_HDT_4_Task_29 + vv_HDT_4_Task_30 + vv_HDT_4_Task_31
+   + vv_HDT_4_Task_32 + vv_HDT_4_Task_33 + vv_HDT_4_Task_34
+   + vv_HDT_4_Task_38 + vv_HDT_4_Task_39 + vv_HDT_4_Task_40
+   + vv_HDT_4_Task_41 + vv_HDT_4_Task_42 + vv_HDT_4_Task_43
+   + vv_HDT_4_Task_44 + vv_HDT_4_Task_46 + vv_HDT_4_Task_47
+   + vv_HDT_4_Task_48 + vv_HDT_4_Task_50 + vv_HDT_4_Task_52
+   + vv_HDT_4_Task_53 + vv_HDT_4_Task_54 + vv_HDT_4_Task_55
+   + vv_HDT_4_Task_57 + vv_HDT_4_Task_60 + vv_HDT_4_Task_61
+   + vv_HDT_4_Task_63 + vv_HDT_4_Task_64 + vv_HDT_4_Task_65
+   + vv_HDT_4_Task_66 + vv_HDT_4_Task_68 + vv_HDT_4_Task_69
+   + vv_HDT_4_Task_70 + vv_HDT_4_Task_72 + vv_HDT_4_Task_73
+   + vv_HDT_4_Task_75 + vv_HDT_4_Task_76 + vv_HDT_4_Task_77
+   + vv_HDT_4_Task_80 + vv_HDT_4_Task_81 + vv_HDT_4_Task_83
+   + vv_HDT_4_Task_84 + vv_HDT_4_Task_86 + vv_HDT_4_Task_87
+   + vv_HDT_4_Task_88 <= 0
 Bounds
- vol_pre_Station_10_95 free
+Binaries
+ v_HDT_2 vv_HDT_2_Task_1 vv_HDT_2_Task_3 vv_HDT_2_Task_5 vv_HDT_2_Task_6
+ vv_HDT_2_Task_7 vv_HDT_2_Task_8 vv_HDT_2_Task_9 vv_HDT_2_Task_10
+ vv_HDT_2_Task_11 vv_HDT_2_Task_12 vv_HDT_2_Task_13 vv_HDT_2_Task_14
+ vv_HDT_2_Task_15 vv_HDT_2_Task_16 vv_HDT_2_Task_17 vv_HDT_2_Task_19
+ vv_HDT_2_Task_20 vv_HDT_2_Task_21 vv_HDT_2_Task_22 vv_HDT_2_Task_27
+ vv_HDT_2_Task_28 vv_HDT_2_Task_29 vv_HDT_2_Task_30 vv_HDT_2_Task_31
+ vv_HDT_2_Task_32 vv_HDT_2_Task_33 vv_HDT_2_Task_34 vv_HDT_2_Task_38
+ vv_HDT_2_Task_39 vv_HDT_2_Task_40 vv_HDT_2_Task_41 vv_HDT_2_Task_42
+ vv_HDT_2_Task_43 vv_HDT_2_Task_44 vv_HDT_2_Task_46 vv_HDT_2_Task_47
+ vv_HDT_2_Task_48 vv_HDT_2_Task_50 vv_HDT_2_Task_52 vv_HDT_2_Task_53
+ vv_HDT_2_Task_54 vv_HDT_2_Task_55 vv_HDT_2_Task_57 vv_HDT_2_Task_60
+ vv_HDT_2_Task_61 vv_HDT_2_Task_63 vv_HDT_2_Task_64 vv_HDT_2_Task_65
+ vv_HDT_2_Task_66 vv_HDT_2_Task_68 vv_HDT_2_Task_69 vv_HDT_2_Task_70
+ vv_HDT_2_Task_72 vv_HDT_2_Task_73 vv_HDT_2_Task_75 vv_HDT_2_Task_76
+ vv_HDT_2_Task_77 vv_HDT_2_Task_80 vv_HDT_2_Task_81 vv_HDT_2_Task_83
+ vv_HDT_2_Task_84 vv_HDT_2_Task_86 vv_HDT_2_Task_87 vv_HDT_2_Task_88
+ v_HDT_4 vv_HDT_4_Task_1 vv_HDT_4_Task_3 vv_HDT_4_Task_5 vv_HDT_4_Task_6
+ vv_HDT_4_Task_7 vv_HDT_4_Task_8 vv_HDT_4_Task_9 vv_HDT_4_Task_10
+ vv_HDT_4_Task_11 vv_HDT_4_Task_12 vv_HDT_4_Task_13 vv_HDT_4_Task_14
+ vv_HDT_4_Task_15 vv_HDT_4_Task_16 vv_HDT_4_Task_17 vv_HDT_4_Task_19
+ vv_HDT_4_Task_20 vv_HDT_4_Task_21 vv_HDT_4_Task_22 vv_HDT_4_Task_27
+ vv_HDT_4_Task_28 vv_HDT_4_Task_29 vv_HDT_4_Task_30 vv_HDT_4_Task_31
+ vv_HDT_4_Task_32 vv_HDT_4_Task_33 vv_HDT_4_Task_34 vv_HDT_4_Task_38
+ vv_HDT_4_Task_39 vv_HDT_4_Task_40 vv_HDT_4_Task_41 vv_HDT_4_Task_42
+ vv_HDT_4_Task_43 vv_HDT_4_Task_44 vv_HDT_4_Task_46 vv_HDT_4_Task_47
+ vv_HDT_4_Task_48 vv_HDT_4_Task_50 vv_HDT_4_Task_52 vv_HDT_4_Task_53
+ vv_HDT_4_Task_54 vv_HDT_4_Task_55 vv_HDT_4_Task_57 vv_HDT_4_Task_60
+ vv_HDT_4_Task_61 vv_HDT_4_Task_63 vv_HDT_4_Task_64 vv_HDT_4_Task_65
+ vv_HDT_4_Task_66 vv_HDT_4_Task_68 vv_HDT_4_Task_69 vv_HDT_4_Task_70
+ vv_HDT_4_Task_72 vv_HDT_4_Task_73 vv_HDT_4_Task_75 vv_HDT_4_Task_76
+ vv_HDT_4_Task_77 vv_HDT_4_Task_80 vv_HDT_4_Task_81 vv_HDT_4_Task_83
+ vv_HDT_4_Task_84 vv_HDT_4_Task_86 vv_HDT_4_Task_87 vv_HDT_4_Task_88
+ df_Task_1 df_Task_5 df_Task_6 df_Task_8 df_Task_12 df_Task_13 df_Task_14
+ df_Task_15 df_Task_17 df_Task_20 df_Task_21 df_Task_29 df_Task_30
+ df_Task_31 df_Task_33 df_Task_38 df_Task_39 df_Task_41 df_Task_42
+ df_Task_43 df_Task_47 df_Task_48 df_Task_50 df_Task_52 df_Task_55
+ df_Task_60 df_Task_61 df_Task_64 df_Task_66 df_Task_68 df_Task_69
+ df_Task_70 df_Task_72 df_Task_73 df_Task_75 df_Task_76 df_Task_80
+ df_Task_81 df_Task_83 df_Task_86 df_Task_88
 End

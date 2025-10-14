@@ -2,14 +2,14 @@ import pandas as pd
 import numpy as np
 import os
 import random
-# import networkx as nx
-# import pandapower as pp
-# from gpy.stats import norm
-# import osmnx as ox
+import networkx as nx
+import pandapower as pp
+from scipy.stats import norm
+import osmnx as ox
 import math
 
 import config as config
-# import road_network 
+import road_network
 from collections import defaultdict
 import pickle
 
@@ -25,7 +25,7 @@ class DataLoader:
         self.road_network = None
 
     def get_voltage_pre(self,time_steps, peak): #默认按最大计算
-        voltage_max = np.array([peak] * len(time_steps))
+        voltage_max = np.array([peak*0.8] * len(time_steps))
         return pd.Series(voltage_max, index=time_steps).tolist()
 
     def get_voltage_next(self,time_steps, peak): #默认按最大计算
@@ -179,7 +179,6 @@ class DataLoader:
         return self.model_data
 
 
-
 def buildModel_Case1(data, config):
     # 默认一个任务就是一个节点
     # 时间字典
@@ -210,8 +209,8 @@ def buildModel_Case1(data, config):
     M = 1e6
 
     model = gp.Model("Model")
-    # model.setParam("TimeLimit", 60) # 设置求解时间
-    model.setParam("MipGap", 0.2)  #设置求解gap
+    model.setParam("TimeLimit", 6000) # 设置求解时间
+    model.setParam("MipGap", 0.20)  #设置求解gap
     #建立变量
     varDict = {}
     for vehicle_id in vehicel_depot:
@@ -322,7 +321,7 @@ def buildModel_Case1(data, config):
     # 每个需求点最多被访问一次
     for task_id in task_depot:
         model.addConstr(gp.quicksum(varDict['vv',(vehicle_id,task_id)] for vehicle_id in depot_vehicles[task_depot[task_id]]) == varDict['df',task_id])
-        # model.addConstr(varDict['df',task_id] == 1)
+        model.addConstr(varDict['df',task_id] == 1)
     # 每台车对节点进度等于出度, 且度=r[v,d]
     for vehicle_id in vehicel_depot:
         depot = vehicel_depot[vehicle_id]
@@ -390,8 +389,8 @@ def buildModel_Case1(data, config):
             # if node in task_depot:
             #     model.addConstr(varDict['vt',(vehicle_id,node)] <= data['tasks'][node]['due_time'] * varDict['df',node])
         # 车辆如果被启用，必须满足最小服务数量&最大服务数量
-        model.addConstr(gp.quicksum(varDict['vv',(vehicle_id,task_id)] for task_id in depot_tasks[depot]) <= config.MAX_TASKS_PER_TRUCK + (1 - varDict['v',vehicle_id]) * M)
-        model.addConstr(gp.quicksum(varDict['vv',(vehicle_id,task_id)] for task_id in depot_tasks[depot]) >= config.MIN_TASKS_PER_TRUCK - (1 - varDict['v',vehicle_id]) * M)
+        model.addConstr(gp.quicksum(varDict['vv',(vehicle_id,task_id)] for task_id in depot_tasks[depot]) <= config.MAX_TASKS_PER_TRUCK * varDict['v',vehicle_id])
+        model.addConstr(gp.quicksum(varDict['vv',(vehicle_id,task_id)] for task_id in depot_tasks[depot]) >= config.MIN_TASKS_PER_TRUCK * varDict['v',vehicle_id])
     # 车辆SOC的迭代
     for vehicle_id in vehicel_depot:
         depot = vehicel_depot[vehicle_id]
@@ -439,10 +438,11 @@ def buildModel_Case1(data, config):
     obj4 = gp.quicksum(gp.quicksum( (varDict['swap_g_e',(station,t)] - varDict['swap_pv_g',(station,t)])* grid_price[t] for t in numtotime) for station in stations)
     model.setObjective(obj1 + obj2 + obj3 + obj4,sense=GRB.MINIMIZE)
     # model.writeProblem("D:/model.lp")
-    # model.setRealParam('limits/time', 30)
+    # model.setRealParam('limits/time', 300)
     # model.setRealParam('limits/gap', 0.1)
     # ==== 求解 ====
     # ==== 求解 ====
+    # model.Params.TimeLimit = 300
     model.optimize()
 
     status = model.Status
@@ -477,8 +477,8 @@ def buildModel_Case1(data, config):
                 pass
         raise RuntimeError("模型不可行(INFEASIBLE)。已导出 model.ilp / model.lp / model.mps，并打印 IIS 详情。")
 
-    if status not in [GRB.OPTIMAL, GRB.SUBOPTIMAL]:
-        raise RuntimeError(f"求解结束但无可行解可读，Gurobi 状态码：{status}")
+    # if status not in [GRB.OPTIMAL, GRB.SUBOPTIMAL]:
+    #     raise RuntimeError(f"求解结束但无可行解可读，Gurobi 状态码：{status}")
 
     # ==== 安全读取变量值 ====
     def _safe_val(v):
@@ -577,14 +577,16 @@ if __name__ == '__main__':
         data = pd.read_pickle(pkl_path)
     else:
         print("⚠️ 未找到 data.pkl，正在生成最小示例数据并保存...")
-        data = make_minimal_data(
-            total_time_steps=8,
-            time_step_hours=1.0,
-            n_customers=6,
-            n_stations=2,
-            n_depots=2,
-            n_vehicles=3
-        )
+        # data = make_minimal_data(
+        #     total_time_steps=8,
+        #     time_step_hours=1.0,
+        #     n_customers=6,
+        #     n_stations=2,
+        #     n_depots=2,
+        #     n_vehicles=3
+        # )
+        data_loader = DataLoader(config)
+        data = data_loader.load_all()
         with open(pkl_path, 'wb') as f:
             pickle.dump(data, f)
         print(f"✅ 已写入: {pkl_path}")
