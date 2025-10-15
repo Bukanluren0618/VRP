@@ -270,7 +270,7 @@ def fill_core_holes(G, pos, *, core_q=0.45, hole_radius=0.10, bridges_per_cc=2):
     return G2
 
 
-def pull_nodes_toward_center(pos: dict, nodes, k=0.65, center=(0.5, 0.5), clamp=(1e-3, 0.999)):
+def pull_nodes_toward_center(pos: dict, nodes, k=0.65, center=(0.5, 0.5), clamp=(1e-3, 0.999)): #0.65
     """把 nodes 径向向中心拉近到原距离的 k 倍（仅改坐标）"""
     cx, cy = center
     xmin, xmax = clamp
@@ -337,7 +337,7 @@ if set(FIXED_DEPOT_NODE_IDS) & set(FIXED_STATION_NODE_IDS):
 
 # 客户节点为剩余所有未被占用的节点
 reserved = set(FIXED_DEPOT_NODE_IDS + FIXED_STATION_NODE_IDS)
-customer_nodes = [n for n in G.nodes() if n not in reserved]
+customer_nodes = [n for n in G.nodes() if n not in reserved][:NUM_CUSTOMERS]
 
 # 数量检查
 if len(FIXED_DEPOT_NODE_IDS) != NUM_DEPOTS:
@@ -347,15 +347,17 @@ if len(FIXED_STATION_NODE_IDS) != NUM_STATIONS:
 
 # 组装 locations
 locations = {}
-for i, n in enumerate(FIXED_DEPOT_NODE_IDS, 1):
+for i, n in enumerate(FIXED_DEPOT_NODE_IDS[:NUM_DEPOTS], 1):
     locations[f"Depot_{i}"] = {"type": "Depot", "node_id": n}
-for i, n in enumerate(FIXED_STATION_NODE_IDS, 1):
+for i, n in enumerate(FIXED_STATION_NODE_IDS[:NUM_STATIONS], 1):
     locations[f"Station_{i}"] = {"type": "SwapStation", "node_id": n}
 for i, n in enumerate(customer_nodes, 1):
     locations[f"Customer_{i}"] = {"type": "Customer", "node_id": n}
 
 print(f"✅ 已固定 {len(FIXED_DEPOT_NODE_IDS)} 个仓库，{len(FIXED_STATION_NODE_IDS)} 个换电站。")
 # ======================== 设施分配结束 ========================
+
+
 
 
 # ========================== 矩阵计算 ==========================
@@ -388,6 +390,46 @@ stations = [k for k, v in locations.items() if v["type"]=="SwapStation"]
 stations_info = {s: {"initial_full":10, "initial_empty":5, "bus_id": i+1} for i, s in enumerate(stations)}
 station_to_bus_map = {s: info["bus_id"] for s, info in stations_info.items()}
 
+# ========================== IEEE118 电网映射 ==========================
+import pandapower as pp
+
+net = pp.networks.case118()
+print(f"🔌 已载入 IEEE118 系统，共 {len(net.bus)} 个母线。")
+
+# 为每个站创建：storage（BESS）+ sgen（PV）+ load（EV/站内负荷）
+# 同时记录各自的表索引，便于后续快速更新功率
+load_index_map    = {}   # {station: load_idx}
+sgen_index_map    = {}   # {station: sgen_idx}
+storage_index_map = {}   # {station: storage_idx}
+bus_map           = {}   # {station: bus_id}
+
+for i, s in enumerate(stations):
+    bus_id = int(i % len(net.bus))          # 你也可以改成自己想绑定的 bus
+    bus_map[s] = bus_id
+
+    stor_idx = pp.create_storage(
+        net, bus=bus_id, p_mw=0.0, max_e_mwh=0.5,
+        soc_percent=50.0, min_e_mwh=0.0, max_p_mw=0.3,
+        controllable=True, name=f"{s}_BESS"
+    )
+    sgen_idx = pp.create_sgen(
+        net, bus=bus_id, p_mw=0.0, q_mvar=0.0,
+        name=f"{s}_PV", type="PV"
+    )
+    load_idx = pp.create_load(
+        net, bus=bus_id, p_mw=0.0, q_mvar=0.0,
+        name=f"{s}_EVload"
+    )
+    storage_index_map[s] = int(stor_idx)
+    sgen_index_map[s]    = int(sgen_idx)
+    load_index_map[s]    = int(load_idx)
+
+print(f"✅ 已将 {len(stations)} 个换电站挂载到 IEEE118 网络。")
+
+# 用 IEEE118 的 bus 映射覆盖/更新 station_to_bus_map（以后以电网为准）
+station_to_bus_map = bus_map
+
+
 time_steps = list(range(TOTAL_STEPS))
 electricity_prices = pd.Series(0.9 + 0.3*np.sin(np.linspace(0, 10*math.pi, TOTAL_STEPS)), index=time_steps)
 
@@ -402,16 +444,24 @@ v_mid = (VOLTAGE_MIN + VOLTAGE_MAX)/2.0
 voltage_pre = {s: [float(v_mid)]*TOTAL_STEPS for s in stations}
 ev_demand_timestep = {s: [0.0]*TOTAL_STEPS for s in stations}
 
-# ========================== 写出 ==========================
+
+
+# ========================== 写出 data.pkl（新增网元索引） ==========================
 data = {
     "traffic_graph": G, "locations": locations, "tasks": tasks, "vehicles": vehicles,
     "stations": stations_info, "dist_matrix": dist_matrix, "time_matrix": time_matrix,
-    "path_matrix": path_matrix, "power_grid_net": None, "station_to_bus_map": station_to_bus_map,
+    "path_matrix": path_matrix, "power_grid_net": net,
+    "station_to_bus_map": station_to_bus_map,
+    "pp_load_index_map": load_index_map,
+    "pp_sgen_index_map": sgen_index_map,
+    "pp_storage_index_map": storage_index_map,
     "time_steps": time_steps, "electricity_prices": electricity_prices,
-    "pv_generation": pv_generation, "ev_demand_timestep": ev_demand_timestep, "voltage_pre": voltage_pre
+    "pv_generation": pv_generation, "ev_demand_timestep": ev_demand_timestep,
+    "voltage_pre": voltage_pre
 }
 OUT_PATH = os.path.join(BASE_DIR, "data.pkl")
-with open(OUT_PATH, "wb") as f: pickle.dump(data, f)
-print(f"✅ 已生成 data.pkl（中心密集 + 外围稀疏 + 可控死路，步长={TOTAL_STEPS}）")
+with open(OUT_PATH, "wb") as f:
+    pickle.dump(data, f)
+print(f"✅ 已生成 data.pkl（步长={TOTAL_STEPS}）")
 print(f"   Depots={NUM_DEPOTS}, Stations={NUM_STATIONS}, Customers={NUM_CUSTOMERS}, Trucks={NUM_TRUCKS}")
 print("📁", OUT_PATH)

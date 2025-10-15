@@ -8,7 +8,7 @@ from scipy.stats import norm
 import osmnx as ox
 import math
 
-import config as config
+import src.common.config_final as config
 import road_network
 from collections import defaultdict
 import pickle
@@ -178,9 +178,96 @@ class DataLoader:
         print("场景数据创建完成！");
         return self.model_data
 
+def run_power_flow_over_time(
+    data,
+    swap_g_e_df: pd.DataFrame,   # 列: ['station','time','grid_to_bess_kw']   —— 你已有
+    swap_pv_g_df: pd.DataFrame,  # 列: ['station','time','pv_to_grid_kw']     —— 你已有
+    swap_vs_df: pd.DataFrame = None,  # 可选，若你想用 BESS p_mw = 站内换电量/持续时间
+    bess_discharge_kw_col: str = 'swap_bess_kwh',  # swap_vs_df 的功率/能量列名（按你表命名调整）
+    time_step_hours: float = 0.25
+):
+    """
+    将 MILP 的功率决策写入 pandapower 网络，按时间步运行潮流，返回电压与线路负荷结果。
+    说明：
+      - grid_to_bess_kw : 购电（负荷，写到 load.p_mw，单位转换 kW->MW）
+      - pv_to_grid_kw   : 售电（分布式发电，写到 sgen.p_mw，注意发电为正，故取 +）
+      - 可选：BESS 的 p_mw 可用 swap_vs_df 近似，或留 0 由能量约束自己管
+    返回：
+      - bus_vm_df: 列 ['time','bus','vm_pu']
+      - line_loading_df: 列 ['time','line','loading_percent']
+    """
+    net = data["power_grid_net"]
+    if net is None:
+        raise RuntimeError("power_grid_net 为空，请确认在 data.pkl 中已保存 pandapower 网络。")
+
+    load_map    = data["pp_load_index_map"]
+    sgen_map    = data["pp_sgen_index_map"]
+    storage_map = data.get("pp_storage_index_map", {})
+
+    time_steps = sorted(data["time_steps"])
+    # 为避免 query 性能问题，先构建透视便于快速读取
+    g2e = swap_g_e_df.pivot(index='time', columns='station', values='grid_to_bess_kw').fillna(0.0)
+    pvg = swap_pv_g_df.pivot(index='time', columns='station', values='pv_to_grid_kw').fillna(0.0)
+    if swap_vs_df is not None and bess_discharge_kw_col in swap_vs_df.columns:
+        vs  = swap_vs_df.pivot(index='time', columns='station', values=bess_discharge_kw_col).fillna(0.0)
+    else:
+        vs  = None
+
+    # 结果收集
+    vm_records = []
+    ld_records = []
+
+    # 可选：指定潮流选项提高鲁棒性（配电网常用 BFS 等）
+    pp.set_user_pf_options(net, calculate_voltage_angles=False, init="results", tolerance_mva=1e-6)
+
+    for t in time_steps:
+        # 1) 写负荷（购电为正）
+        for s, idx in load_map.items():
+            p_kw = float(g2e.at[t, s]) if (t in g2e.index and s in g2e.columns) else 0.0
+            net.load.at[idx, 'p_mw'] = max(0.0, p_kw) / 1000.0
+
+        # 2) 写分布式发电（售电为正）
+        for s, idx in sgen_map.items():
+            p_kw = float(pvg.at[t, s]) if (t in pvg.index and s in pvg.columns) else 0.0
+            net.sgen.at[idx, 'p_mw'] = max(0.0, p_kw) / 1000.0
+
+        # 3)（可选）写 BESS 功率，正为放电
+        if vs is not None:
+            for s, idx in storage_map.items():
+                p_kw = float(vs.at[t, s]) if (t in vs.index and s in vs.columns) else 0.0
+                net.storage.at[idx, 'p_mw'] = p_kw / 1000.0
+
+        # 4) 运行潮流
+        try:
+            pp.runpp(net)
+        except Exception:
+            # 如果失败，降级用更稳健初始化再跑一次
+            pp.runpp(net, init="flat", enforce_q_lims=True, tolerance_mva=1e-6)
+
+        # 5) 记录母线电压与线路负荷
+        for bus_idx, row in net.res_bus.iterrows():
+            vm_records.append((t, int(bus_idx), float(row.vm_pu)))
+        for line_idx, row in net.res_line.iterrows():
+            loading = float(row.loading_percent) if not np.isnan(row.loading_percent) else 0.0
+            ld_records.append((t, int(line_idx), loading))
+
+    bus_vm_df = pd.DataFrame(vm_records, columns=['time', 'bus', 'vm_pu'])
+    line_loading_df = pd.DataFrame(ld_records, columns=['time', 'line', 'loading_percent'])
+    return bus_vm_df, line_loading_df
+
+def test_scale(data, coff =10):
+    data['dist_matrix'] = {pre: val.to_dict() for pre,val in data['dist_matrix'].items()}
+    data['time_matrix'] = {pre: val.to_dict() for pre, val in data['time_matrix'].items()}
+    dist_matrix = data['dist_matrix']
+    time_matrix = data['time_matrix']
+    for pre in dist_matrix:
+        for next in dist_matrix[pre]:
+            dist_matrix[pre][next]  *= coff
+            time_matrix[pre][next] *= coff
 
 def buildModel_Case1(data, config):
     # 默认一个任务就是一个节点
+    test_scale(data, coff=8)
     # 时间字典
     time_steps = range(config.TOTAL_TIME_STEPS)
     hours = [t * config.TIME_STEP_HOURS for t in time_steps]
@@ -209,7 +296,7 @@ def buildModel_Case1(data, config):
     M = 1e6
 
     model = gp.Model("Model")
-    model.setParam("TimeLimit", 6000) # 设置求解时间
+    # model.setParam("TimeLimit", 60) # 设置求解时间
     model.setParam("MipGap", 0.20)  #设置求解gap
     #建立变量
     varDict = {}
@@ -275,7 +362,7 @@ def buildModel_Case1(data, config):
             model.addConstr(varDict['swap_g_e',(station,t)]  <= M * (1 - varDict['swap_pv_g_f',(station, t)]))
             # 电量水位迭代
             if t == 0:
-                model.addConstr( varDict['swap_e',(station,t)]  == 0)
+                model.addConstr( varDict['swap_e',(station,t)]  == data['stations'][station]['initial_empty'])
             else:
                 model.addConstr(varDict['swap_e',(station,t)] == varDict['swap_e',(station,t-1)] + (varDict['swap_pv_e',(station,t-1)] +
                             varDict['swap_g_e',(station,t-1)]) * config.SWAP_DURATION_HOURS - varDict['swap_s',(station,t-1)])
@@ -296,7 +383,7 @@ def buildModel_Case1(data, config):
             model.addConstr(varDict['vol_pre',(station, t)] <= config.VOLTAGE_MAX)
             # 热稳定性
             model.addConstr(varDict.get(('swap_g_e',(station,t)),0) <= config.THERMAL_STABILITY_MAX)
-        model.addConstr(varDict['swap_e',(station,len(numtotime))] == 0)
+        # model.addConstr(varDict['swap_e',(station,len(numtotime))] == 0)
         model.addConstr(varDict['swap_e',(station,len(numtotime))] == varDict['swap_e',(station,len(numtotime)-1)] + (varDict['swap_pv_e',(station,len(numtotime)-1)] +
                             varDict['swap_g_e',(station,len(numtotime)-1)]) * config.SWAP_DURATION_HOURS - varDict['swap_s',(station,len(numtotime)-1)])
 
@@ -591,9 +678,30 @@ if __name__ == '__main__':
             pickle.dump(data, f)
         print(f"✅ 已写入: {pkl_path}")
 
+
     output_dict = buildModel_Case1(data, config)
 
-    # 输出Excel
+    # # ==== 优化后：调用潮流 ====
+    # bus_vm_df, line_loading_df = run_power_flow_over_time(
+    #     data,
+    #     swap_g_e_df=output_dict['swap_g_e_df'],
+    #     swap_pv_g_df=output_dict['swap_pv_g_df'],
+    #     swap_vs_df=output_dict.get('swap_vs_df', None),
+    #     bess_discharge_kw_col='swap_bess_kwh',
+    #     time_step_hours=(data['TIME_STEP_HOURS'] if 'TIME_STEP_HOURS' in data
+    #                      else (data['time_steps'][1] - data['time_steps'][0] if len(data['time_steps']) > 1 else 0.25))
+    # )
+    #
+    # # 写Excel（把潮流结果也写进去）
+    # with pd.ExcelWriter('algo_res.xlsx') as writer:
+    #     for k, v in output_dict.items():
+    #         v.to_excel(writer, sheet_name=k[:31], index=False)  # Excel sheet名≤31字符
+    #     bus_vm_df.to_excel(writer, sheet_name='pf_bus_vm', index=False)
+    #     line_loading_df.to_excel(writer, sheet_name='pf_line_loading', index=False)
+    #
+    # print("✅ 已写入 algo_res.xlsx（含潮流结果）")
+    #
+    # # 输出Excel
     with pd.ExcelWriter('algo_res.xlsx') as writer:
         for k, v in output_dict.items():
             v.to_excel(writer, sheet_name=k, index=False)
