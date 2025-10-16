@@ -15,7 +15,7 @@ ROAD_MODEL = 'waxman'  # 'waxman' 或 'real_world'
 # 如果使用 'real_world', 请设置下面的 CITY_NAME
 CITY_NAME = "Piedmont, California, USA"
 # 如果使用 'waxman', 请设置下面的参数
-CITY_NODE_COUNT = 100
+CITY_NODE_COUNT = 120
 CITY_GRAPH_RADIUS = 0.8
 CITY_SCALE_KM = 500.0
 ROADS_KNN = 4 # 每个节点额外连接的近邻数
@@ -44,7 +44,7 @@ ROAD_MODEL = 'waxman'  # 'waxman' 或 'real_world'
 # 如果使用 'real_world', 请设置下面的 CITY_NAME
 CITY_NAME = "Piedmont, California, USA"
 # 如果使用 'waxman', 请设置下面的参数
-CITY_NODE_COUNT = 120
+CITY_NODE_COUNT = 100
 CITY_GRAPH_RADIUS = 0.8
 CITY_SCALE_KM = 40.0
 ROADS_KNN = 4 # 每个节点额外连接的近邻数
@@ -53,8 +53,8 @@ WAXMAN_ALPHA = 0.6
 WAXMAN_BETA = 0.08
 
 # 场景内设施数量
-NUM_DEPOTS = 1
-NUM_STATIONS = 1
+NUM_DEPOTS = 2
+NUM_STATIONS = 10
 NUM_CUSTOMERS = 20 # 减少客户数量以加快测试速度
 NUM_TRUCKS = 5 if not IS_QUICK_TEST else 2
 MIN_TASKS_PER_TRUCK = 1
@@ -68,6 +68,7 @@ HDT_BASE_CONSUMPTION_KWH_PER_KM = 0.8
 HDT_WEIGHT_CONSUMPTION_KWH_PER_KM_TON = 0.05
 LOADING_UNLOADING_TIME_HOURS = 0.5
 SWAP_DURATION_HOURS = 0.25
+AVG_SPEED_KMH = 40
 
 # --- 成本和惩罚 ---
 MANPOWER_COST_PER_HOUR = 80.0

@@ -9,7 +9,10 @@
   * 设施层最短路距离/时间统计
   * 由 dist/time 反推的有效速度（应≈ AVG_SPEED_KMH）
 """
-
+import os
+os.environ["MPLBACKEND"] = "TkAgg"  # 或改为 "Qt5Agg"
+import matplotlib
+matplotlib.use("TkAgg")  # 或 "Qt5Agg"
 import pickle
 from pathlib import Path
 import numpy as np
@@ -20,7 +23,7 @@ from itertools import islice
 import math
 
 # ========= 配置：修改为你的 data.pkl 路径 =========
-PKL_PATH = Path(r"C:\Users\user\Desktop\Wangsenyao\VRP\pythonProject5\pythonProject5\data.pkl")
+PKL_PATH = Path(r"C:\PY3\pythonProject5\pythonProject5\pythonProject5\data.pkl")
 
 # 若没有真实路网时，是否用 dist_matrix 临时构造 kNN 近邻“伪路网”
 PLOT_KNN_IF_NO_GRAPH = False

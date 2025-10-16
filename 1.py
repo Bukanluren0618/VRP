@@ -16,38 +16,39 @@ import numpy as np
 import pandas as pd
 import networkx as nx
 
-# ======================================================================
-#                               PARAMS
-# ======================================================================
-try:
-    from src.common import config_final as cfg
-except Exception:
-    import config as cfg
-def _i(name, default):  # int
-    return int(getattr(cfg, name, default))
-def _f(name, default):  # float
-    return float(getattr(cfg, name, default))
-def _s(name, default):  # str
-    return str(getattr(cfg, name, default))
+# ------------------------- 读取配置（唯一入口） -------------------------
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+for p in [BASE_DIR, os.path.join(BASE_DIR, "src")]:
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
+from importlib import reload
+import src.common.config_final as cfg
+cfg = reload(cfg)  # 若你刚改过 config_final，确保最新
+
+def _need(name):
+    if not hasattr(cfg, name):
+        raise ValueError(f"[config_final 缺少必需项] {name}")
+    return getattr(cfg, name)
+
+def _opt(name, default):
+    return getattr(cfg, name, default)
 # 基础参数（全部带硬编码默认值）
-TOTAL_STEPS              = _i("TOTAL_TIME_STEPS", 96)
-TIME_STEP_HOURS          = _f("TIME_STEP_HOURS", 0.25)
-NUM_DEPOTS               = _i("NUM_DEPOTS", 2)
-NUM_STATIONS             = _i("NUM_STATIONS", 10)
-NUM_CUSTOMERS            = _i("NUM_CUSTOMERS", 60)
-NUM_TRUCKS               = _i("NUM_TRUCKS", 10)
+TOTAL_STEPS               = int(_need("TOTAL_TIME_STEPS"))
+TIME_STEP_HOURS           = float(_need("TIME_STEP_HOURS"))
+NUM_DEPOTS                = int(_need("NUM_DEPOTS"))
+NUM_STATIONS              = int(_need("NUM_STATIONS"))
+NUM_CUSTOMERS             = int(_need("NUM_CUSTOMERS"))
+NUM_TRUCKS                = int(_need("NUM_TRUCKS"))
+CITY_NODE_COUNT           = int(_need("CITY_NODE_COUNT"))
+CITY_SCALE_KM             = float(_need("CITY_SCALE_KM"))
+AVG_SPEED_KMH             = float(_need("AVG_SPEED_KMH"))
+HDT_BATTERY_CAPACITY_KWH  = float(_need("HDT_BATTERY_CAPACITY_KWH"))
+LOADING_UNLOADING_TIME_HOURS = float(_need("LOADING_UNLOADING_TIME_HOURS"))
+VOLTAGE_MIN               = float(_need("VOLTAGE_MIN"))
+VOLTAGE_MAX               = float(_need("VOLTAGE_MAX"))
+PV_PEAK_POWER_KW          = float(_need("PV_PEAK_POWER_KW"))
 
-CITY_NODE_COUNT          = _i("CITY_NODE_COUNT", 100)
-CITY_SCALE_KM            = _f("CITY_SCALE_KM", 40.0)
-AVG_SPEED_KMH            = _f("AVG_SPEED_KMH", 40.0)
-
-HDT_BATTERY_CAPACITY_KWH = _f("HDT_BATTERY_CAPACITY_KWH", 200.0)
-LOADING_UNLOADING_TIME_HOURS = _f("LOADING_UNLOADING_TIME_HOURS", 0.5)
-
-VOLTAGE_MIN              = _f("VOLTAGE_MIN", 160.0)
-VOLTAGE_MAX              = _f("VOLTAGE_MAX", 220.0)
-PV_PEAK_POWER_KW         = _f("PV_PEAK_POWER_KW", 400.0)
 SEED = 42
 
 print(f"[CFG] steps={TOTAL_STEPS}, dt={TIME_STEP_HOURS}, depots={NUM_DEPOTS}, stations={NUM_STATIONS}, customers={NUM_CUSTOMERS}, trucks={NUM_TRUCKS}")
