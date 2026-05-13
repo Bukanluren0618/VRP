@@ -1831,6 +1831,7 @@ def main():
             cbar_label="Travel time (h)"
         )
 
+
         plot_task_time_windows(
             tasks_df=tasks_df,
             output_path=task_time_window_png
