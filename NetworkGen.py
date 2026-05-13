@@ -108,6 +108,8 @@ FREE_SPEED_SHORTCUT = 65.0
 
 BASE_OD_DEMAND_VEH_H = 8.0
 MAX_K_SHORTEST_PATHS = 3
+OD_MAX_DISTANCE_KM = 18.0
+OD_TOPK_PER_ORIGIN = 20
 
 USE_DIRECTED_ARCS = True
 
@@ -732,7 +734,11 @@ def build_tasks_with_time_windows(
 def build_od_pairs_from_customers(
     customers_df,
     tasks_df,
-    base_demand_veh_h=BASE_OD_DEMAND_VEH_H
+    pos,
+    city_scale_km=CITY_SCALE_KM,
+    base_demand_veh_h=BASE_OD_DEMAND_VEH_H,
+    od_max_distance_km=OD_MAX_DISTANCE_KM,
+    od_topk_per_origin=OD_TOPK_PER_ORIGIN
 ):
     task_lookup = tasks_df.set_index("customer_id").to_dict(orient="index")
 
@@ -742,9 +748,26 @@ def build_od_pairs_from_customers(
     customers = customers_df.sort_values("customer_index").to_dict(orient="records")
 
     for o in customers:
+        candidate_destinations = []
+        ox, oy = pos[int(o["node_id"])]
+
         for d in customers:
             if o["customer_id"] == d["customer_id"]:
                 continue
+
+            dx, dy = pos[int(d["node_id"])]
+            euclid_km = float(math.hypot(ox - dx, oy - dy) * city_scale_km)
+
+            if (od_max_distance_km is not None) and (euclid_km > float(od_max_distance_km)):
+                continue
+
+            candidate_destinations.append((euclid_km, d))
+
+        candidate_destinations.sort(key=lambda x: x[0])
+        if (od_topk_per_origin is not None) and (od_topk_per_origin > 0):
+            candidate_destinations = candidate_destinations[:int(od_topk_per_origin)]
+
+        for euclid_km, d in candidate_destinations:
 
             o_task = task_lookup[o["customer_id"]]
             d_task = task_lookup[d["customer_id"]]
@@ -758,6 +781,7 @@ def build_od_pairs_from_customers(
                 "origin_node": int(o["node_id"]),
                 "destination_node": int(d["node_id"]),
                 "demand_veh_h": float(base_demand_veh_h),
+                "euclid_distance_km": round(float(euclid_km), 4),
 
                 "origin_time_window_type": o_task["time_window_type"],
                 "origin_has_start_constraint": bool(o_task["has_start_constraint"]),
@@ -1516,6 +1540,8 @@ def main():
                     "ADD_SHORTCUTS": ADD_SHORTCUTS,
                     "SHORTCUT_PROB": SHORTCUT_PROB,
                     "SHORTCUT_MAX_PER_NODE": SHORTCUT_MAX_PER_NODE,
+                    "OD_MAX_DISTANCE_KM": OD_MAX_DISTANCE_KM,
+                    "OD_TOPK_PER_ORIGIN": OD_TOPK_PER_ORIGIN,
                     "SEED": SEED
                 }
             },
@@ -1588,7 +1614,11 @@ def main():
     od_df = build_od_pairs_from_customers(
         customers_df=customers_df,
         tasks_df=tasks_df,
-        base_demand_veh_h=BASE_OD_DEMAND_VEH_H
+        pos=pos,
+        city_scale_km=CITY_SCALE_KM,
+        base_demand_veh_h=BASE_OD_DEMAND_VEH_H,
+        od_max_distance_km=OD_MAX_DISTANCE_KM,
+        od_topk_per_origin=OD_TOPK_PER_ORIGIN
     )
 
     od_csv = os.path.join(BASE_DIR, "od_pairs.csv")
