@@ -1075,6 +1075,22 @@ def build_od_path_map(path_df):
 
     return od_path_map
 
+def build_path_bundle_for_od(od_df, arc_df):
+    path_df, path_arc_df = generate_candidate_paths_for_od(
+        od_df=od_df,
+        arc_df=arc_df,
+        max_k_shortest=MAX_K_SHORTEST_PATHS
+    )
+    path_arc_matrix = build_path_arc_matrix(
+        path_df=path_df,
+        path_arc_df=path_arc_df,
+        arc_df=arc_df
+    )
+    od_path_map = build_od_path_map(path_df)
+    return path_df, path_arc_df, path_arc_matrix, od_path_map
+
+
+
 
 # ============================= BPR helper functions =============================
 
@@ -1627,17 +1643,34 @@ def main():
     print(f"[OK] OD pairs generated: OD={len(od_df)}")
     print("[FILE] od:", od_csv)
 
-    path_df, path_arc_df = generate_candidate_paths_for_od(
-        od_df=od_df,
-        arc_df=arc_df,
-        max_k_shortest=MAX_K_SHORTEST_PATHS
-    )
+    path_df, path_arc_df, path_arc_matrix, od_path_map = build_path_bundle_for_od(od_df, arc_df)
+    path_df_full, path_arc_df_full, path_arc_matrix_full, od_path_map_full = build_path_bundle_for_od(od_df_full, arc_df)
+    path_df_filtered, path_arc_df_filtered, path_arc_matrix_filtered, od_path_map_filtered = build_path_bundle_for_od(od_df_filtered, arc_df)
 
     path_csv = os.path.join(BASE_DIR, "candidate_paths.csv")
     path_arc_csv = os.path.join(BASE_DIR, "path_arc_incidence.csv")
+    path_dense_csv = os.path.join(BASE_DIR, "path_arc_incidence_dense.csv")
+
+    path_full_csv = os.path.join(BASE_DIR, "candidate_paths_full.csv")
+    path_arc_full_csv = os.path.join(BASE_DIR, "path_arc_incidence_full.csv")
+    path_dense_full_csv = os.path.join(BASE_DIR, "path_arc_incidence_dense_full.csv")
+
+    path_filtered_csv = os.path.join(BASE_DIR, "candidate_paths_filtered.csv")
+    path_arc_filtered_csv = os.path.join(BASE_DIR, "path_arc_incidence_filtered.csv")
+    path_dense_filtered_csv = os.path.join(BASE_DIR, "path_arc_incidence_dense_filtered.csv")
 
     path_df.to_csv(path_csv, index=False, encoding="utf-8-sig")
     path_arc_df.to_csv(path_arc_csv, index=False, encoding="utf-8-sig")
+
+    path_arc_matrix.to_csv(path_dense_csv, encoding="utf-8-sig")
+
+    path_df_full.to_csv(path_full_csv, index=False, encoding="utf-8-sig")
+    path_arc_df_full.to_csv(path_arc_full_csv, index=False, encoding="utf-8-sig")
+    path_arc_matrix_full.to_csv(path_dense_full_csv, encoding="utf-8-sig")
+
+    path_df_filtered.to_csv(path_filtered_csv, index=False, encoding="utf-8-sig")
+    path_arc_df_filtered.to_csv(path_arc_filtered_csv, index=False, encoding="utf-8-sig")
+    path_arc_matrix_filtered.to_csv(path_dense_filtered_csv, encoding="utf-8-sig")
 
     print(
         f"[OK] Candidate paths generated: "
@@ -1647,11 +1680,9 @@ def main():
     print("[FILE] paths:", path_csv)
     print("[FILE] path_arc:", path_arc_csv)
 
-    path_arc_matrix = build_path_arc_matrix(
-        path_df=path_df,
-        path_arc_df=path_arc_df,
-        arc_df=arc_df
-    )
+    print("[FILE] path_arc_dense:", path_dense_csv)
+    print(f"[FILE] full paths/path_arc/path_dense: {path_full_csv} | {path_arc_full_csv} | {path_dense_full_csv}")
+    print(f"[FILE] filtered paths/path_arc/path_dense: {path_filtered_csv} | {path_arc_filtered_csv} | {path_dense_filtered_csv}")
 
     path_arc_dense_csv = os.path.join(BASE_DIR, "path_arc_incidence_dense.csv")
     path_arc_matrix.to_csv(path_arc_dense_csv, encoding="utf-8-sig")
@@ -1724,9 +1755,17 @@ def main():
 
         "arc_df": arc_df,
         "od_df": od_df,
+        "path_df_full": path_df_full,
+        "path_df_filtered": path_df_filtered,
         "path_df": path_df,
+        "path_arc_df_full": path_arc_df_full,
+        "path_arc_df_filtered": path_arc_df_filtered,
         "path_arc_df": path_arc_df,
+        "path_arc_matrix_full": path_arc_matrix_full,
+        "path_arc_matrix_filtered": path_arc_matrix_filtered,
         "path_arc_matrix": path_arc_matrix,
+        "od_path_map_full": od_path_map_full,
+        "od_path_map_filtered": od_path_map_filtered,
         "od_path_map": od_path_map,
 
         "od_demand_matrix": od_demand_matrix,
