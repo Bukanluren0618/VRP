@@ -87,7 +87,6 @@ ADD_SHORTCUTS = True
 SHORTCUT_PROB = 0.03
 SHORTCUT_MAX_PER_NODE = 2
 
-FORCE_CONNECTED = False
 
 PLOT_NETWORK = True
 LABEL_EVERY_K = 1
@@ -457,7 +456,7 @@ def build_customers_with_duplicates(
         raise ValueError(
             f"Largest component has only {len(largest_nodes)} nodes, "
             f"less than required unique customer nodes={num_unique_customer_nodes}. "
-            f"Increase K_CENTER/K_EDGE or enable a reconnect step."
+            f"Increase K_CENTER/K_EDGE."
         )
 
     unique_nodes = rng.choice(
@@ -1517,7 +1516,6 @@ def main():
                     "ADD_SHORTCUTS": ADD_SHORTCUTS,
                     "SHORTCUT_PROB": SHORTCUT_PROB,
                     "SHORTCUT_MAX_PER_NODE": SHORTCUT_MAX_PER_NODE,
-                    "FORCE_CONNECTED": FORCE_CONNECTED,
                     "SEED": SEED
                 }
             },
