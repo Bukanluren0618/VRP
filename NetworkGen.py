@@ -122,6 +122,10 @@ CONGESTION_RADIUS_KM = 6.0
 CONGESTION_CAPACITY_FACTOR = 0.35
 CONGESTION_TIME_PENALTY = 3.0
 
+FLEET_SIZE_EHDT = 0
+IESS_TARGET_COORDS = [(0.22, 0.22), (0.78, 0.78)]
+EVCS_TARGET_COORDS = [(0.20, 0.80), (0.80, 0.20)]
+
 
 # ============================= Relaxed task time-window parameters =============================
 
@@ -1072,6 +1076,25 @@ def build_path_arc_matrix(path_df, path_arc_df, arc_df):
 
     return mat
 
+def select_fixed_facility_nodes(pos, target_coords):
+    selected = []
+    used = set()
+    for tx, ty in target_coords:
+        best_node = None
+        best_d2 = float("inf")
+        for nid, (x, y) in pos.items():
+            if nid in used:
+                continue
+            d2 = (x - tx) ** 2 + (y - ty) ** 2
+            if d2 < best_d2:
+                best_d2 = d2
+                best_node = int(nid)
+        if best_node is not None:
+            selected.append(best_node)
+            used.add(best_node)
+    return selected
+
+
 def export_bundle_to_excel(base_dir, sheets):
     excel_path = os.path.join(base_dir, "vrp_outputs.xlsx")
     with pd.ExcelWriter(excel_path) as writer:
@@ -1734,35 +1757,18 @@ def main():
 
     od_path_map = build_od_path_map(path_df)
 
-    initial_path_flow = pd.Series(
+    baseline_path_flow = pd.Series(
         0.0,
         index=path_arc_matrix.index,
         name="path_flow_veh_h"
     )
 
-    for _, od in od_df.iterrows():
-        od_id = int(od["od_id"])
-        demand = float(od["demand_veh_h"])
-
-        path_ids = od_path_map.get(od_id, [])
-
-        if len(path_ids) == 0:
-            continue
-
-        share = demand / len(path_ids)
-
-        for pid in path_ids:
-            if pid in initial_path_flow.index:
-                initial_path_flow.loc[pid] = share
-
-    initial_link_flow = compute_link_flow_from_path_flow(
-        path_arc_matrix=path_arc_matrix,
-        path_flow_series=initial_path_flow
-    )
+    baseline_link_flow = compute_link_flow_from_path_flow(
 
     arc_bpr_eval_df = evaluate_bpr_on_arcs(
         arc_df=arc_df,
-        link_flow_series=initial_link_flow
+        link_flow_series=baseline_link_flow
+    )
     )
 
     arc_bpr_eval_csv = os.path.join(BASE_DIR, "arcs_bpr_with_initial_flow.csv")
