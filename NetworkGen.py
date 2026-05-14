@@ -123,8 +123,9 @@ CONGESTION_CAPACITY_FACTOR = 0.35
 CONGESTION_TIME_PENALTY = 3.0
 
 FLEET_SIZE_EHDT = 0
-IESS_TARGET_COORDS = [(0.22, 0.22), (0.78, 0.78)]
-EVCS_TARGET_COORDS = [(0.20, 0.80), (0.80, 0.20)]
+IESS_TARGET_COORDS = [(0.18, 0.18), (0.82, 0.18), (0.18, 0.82), (0.82, 0.82)]
+EVCS_TARGET_COORDS = [(0.50, 0.18), (0.50, 0.82), (0.18, 0.50), (0.82, 0.50)]
+FACILITY_SELECTION_METHOD = "euclidean_center"
 
 
 # ============================= Relaxed task time-window parameters =============================
@@ -1810,8 +1811,9 @@ def main():
     iess_nodes = []
     evcs_nodes = []
 
-    iess_nodes = select_fixed_facility_nodes(pos, IESS_TARGET_COORDS)
-    evcs_nodes = select_fixed_facility_nodes(pos, EVCS_TARGET_COORDS)
+    iess_nodes = select_nodes_by_center(pos, n_select=len(IESS_TARGET_COORDS))
+    evcs_nodes = select_nodes_by_center(pos, n_select=len(EVCS_TARGET_COORDS), exclude_nodes=iess_nodes)
+
     facility_df = pd.DataFrame(
         [{"facility_type": "IESS", "node_id": n} for n in iess_nodes] +
         [{"facility_type": "EVCS", "node_id": n} for n in evcs_nodes]
@@ -1819,6 +1821,7 @@ def main():
     print(f"[INFO] Fixed IESS nodes: {list(iess_nodes)}")
     print(f"[INFO] Fixed EVCS nodes: {list(evcs_nodes)}")
     print(f"[INFO] Fleet size EHDT: {FLEET_SIZE_EHDT}")
+    print("[INFO] Facility selection method: euclidean_center")
 
     if EXPORT_EXCEL_BUNDLE:
         excel_path = export_bundle_to_excel(
