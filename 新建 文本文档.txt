@@ -1,0 +1,77 @@
+1) nodes
+- node_id: 路网节点ID
+- x, y: 坐标
+
+2) arcs_bpr
+- arc_id: 弧段ID（有向）
+- from_node, to_node: 弧段起点/终点节点
+- length_km: 弧段长度（km）
+- t0_h: 自由流时间（小时）
+- capacity_veh_h: 弧段容量（车辆/小时）
+- alpha, beta: BPR参数
+- free_speed_kmh: 自由流速度（km/h）
+- edge_kind: 原始边类别
+- road_class: 道路等级（local/arterial/shortcut）
+- is_congested: 是否命中拥堵事件区域
+- congestion_time_penalty: 拥堵惩罚系数
+
+3) customers
+- customer_id: 客户ID
+- customer_index: 客户顺序索引
+- node_id: 客户映射到的路网节点
+
+4) tasks
+- task_id: 任务ID
+- customer_id: 任务所属客户
+- node_id: 任务所在节点
+- time_window_type: 时间窗类型
+- has_start_constraint: 是否有最早开始约束
+- start_time_h: 最早开始时间（小时）
+- deadline_h: 截止时间（小时）
+- ready_time_h, due_time_h: 标准时间窗区间
+- service_time_h: 服务时长（小时）
+- demand_class: 需求等级（small/medium/large）
+- demand: 任务需求量（卸货量）
+
+5) fixed_facilities
+- facility_type: 设施类型（IESS / EVCS）
+- node_id: 设施选址对应路网节点ID
+
+6) od_pairs / od_pairs_full / od_pairs_filtered
+- od_id: OD对ID
+- origin_customer_id, destination_customer_id: 起终点客户
+- origin_customer_index, destination_customer_index: 起终点客户索引
+- origin_node, destination_node: 起终点对应路网节点
+- demand_veh_h: OD需求强度（车辆/小时）
+- euclid_distance_km: 起终点欧氏距离（km）
+- same_physical_node: 起终点是否同一物理节点
+
+7) candidate_paths / candidate_paths_full / candidate_paths_filtered
+- path_id: 路径ID
+- od_id: 所属OD
+- path_type: 路径类型
+- path_length_km: 路径长度（km）
+- free_flow_time_h: 自由流路径时间（小时）
+
+8) path_arc_incidence
+- path_id: 路径ID
+- arc_id: 弧段ID
+- incidence: 是否经过该弧（通常1）
+
+9) path_arc_dense / path_arc_dense_full / path_arc_dense_filtered
+- 行一般为 path_id，列一般为 arc_id
+- 取值0/1，表示该路径是否经过该弧
+
+10) arcs_bpr_with_flow
+- flow_veh_h: 在当前分配/基线下的弧段流量（车辆/小时）
+- bpr_time_h: BPR函数计算后的弧段旅行时间（小时）
+
+11) od_demand_matrix
+- 行: 起点客户ID
+- 列: 终点客户ID
+- 值: demand_veh_h
+
+12) od_free_flow_time_matrix
+- 行: 起点客户ID
+- 列: 终点客户ID
+- 值: shortest/same_node 路径的 free_flow_time_h

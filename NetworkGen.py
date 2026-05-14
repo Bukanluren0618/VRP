@@ -1811,8 +1811,27 @@ def main():
     iess_nodes = []
     evcs_nodes = []
 
-    iess_nodes = select_nodes_by_center(pos, n_select=len(IESS_TARGET_COORDS))
-    evcs_nodes = select_nodes_by_center(pos, n_select=len(EVCS_TARGET_COORDS), exclude_nodes=iess_nodes)
+    center_selector = globals().get("select_nodes_by_center", None)
+    if center_selector is None:
+        def center_selector(local_pos, n_select, exclude_nodes=None):
+            used = set(exclude_nodes or [])
+            cx = float(np.mean([xy[0] for xy in local_pos.values()]))
+            cy = float(np.mean([xy[1] for xy in local_pos.values()]))
+            ranked = sorted(
+                [(int(nid), (xy[0] - cx) ** 2 + (xy[1] - cy) ** 2) for nid, xy in local_pos.items()],
+                key=lambda x: x[1]
+            )
+            out = []
+            for nid, _ in ranked:
+                if nid in used:
+                    continue
+                out.append(int(nid))
+                used.add(int(nid))
+                if len(out) >= int(n_select):
+                    break
+            return out
+    iess_nodes = center_selector(pos, n_select=len(IESS_TARGET_COORDS))
+    evcs_nodes = center_selector(pos, n_select=len(EVCS_TARGET_COORDS), exclude_nodes=iess_nodes)
 
     facility_df = pd.DataFrame(
         [{"facility_type": "IESS", "node_id": n} for n in iess_nodes] +
