@@ -1807,6 +1807,19 @@ def main():
     print("[FILE] od demand matrix:", od_demand_matrix_csv)
     print("[FILE] od time matrix:", od_time_matrix_csv)
 
+    iess_nodes = []
+    evcs_nodes = []
+
+    iess_nodes = select_fixed_facility_nodes(pos, IESS_TARGET_COORDS)
+    evcs_nodes = select_fixed_facility_nodes(pos, EVCS_TARGET_COORDS)
+    facility_df = pd.DataFrame(
+        [{"facility_type": "IESS", "node_id": n} for n in iess_nodes] +
+        [{"facility_type": "EVCS", "node_id": n} for n in evcs_nodes]
+    )
+    print(f"[INFO] Fixed IESS nodes: {list(iess_nodes)}")
+    print(f"[INFO] Fixed EVCS nodes: {list(evcs_nodes)}")
+    print(f"[INFO] Fleet size EHDT: {FLEET_SIZE_EHDT}")
+
     if EXPORT_EXCEL_BUNDLE:
         excel_path = export_bundle_to_excel(
             base_dir=BASE_DIR,
@@ -1825,9 +1838,6 @@ def main():
             }
         )
         print("[FILE] excel bundle:", excel_path)
-        print(f"[INFO] Fixed IESS nodes: {iess_nodes}")
-        print(f"[INFO] Fixed EVCS nodes: {evcs_nodes}")
-        print(f"[INFO] Fleet size EHDT: {FLEET_SIZE_EHDT}")
 
 
 
