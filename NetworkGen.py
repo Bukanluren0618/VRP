@@ -772,6 +772,12 @@ def build_od_pairs_from_customers(
             o_task = task_lookup[o["customer_id"]]
             d_task = task_lookup[d["customer_id"]]
 
+            task_demand_factor = 0.5 * (float(o_task["demand"]) + float(d_task["demand"]))
+            distance_ratio = float(euclid_km) / max(float(od_max_distance_km), 1e-9)
+            distance_factor = max(0.35, 1.0 - 0.45 * min(1.0, distance_ratio))
+            od_demand_veh_h = max(0.1, float(base_demand_veh_h) * task_demand_factor * distance_factor)
+
+
             rows.append({
                 "od_id": int(od_id),
                 "origin_customer_id": o["customer_id"],
@@ -780,7 +786,7 @@ def build_od_pairs_from_customers(
                 "destination_customer_index": int(d["customer_index"]),
                 "origin_node": int(o["node_id"]),
                 "destination_node": int(d["node_id"]),
-                "demand_veh_h": float(base_demand_veh_h),
+                 "demand_veh_h": round(float(od_demand_veh_h), 3),
                 "euclid_distance_km": round(float(euclid_km), 4),
 
                 "origin_time_window_type": o_task["time_window_type"],
