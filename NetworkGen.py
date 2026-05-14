@@ -1643,6 +1643,9 @@ def main():
     print(f"[OK] OD pairs generated: OD={len(od_df)}")
     print("[FILE] od:", od_csv)
 
+    od_df_full = od_df.copy()
+    od_df_filtered = od_df.copy()
+
     path_df, path_arc_df, path_arc_matrix, od_path_map = build_path_bundle_for_od(od_df, arc_df)
     path_df_full, path_arc_df_full, path_arc_matrix_full, od_path_map_full = build_path_bundle_for_od(od_df_full, arc_df)
     path_df_filtered, path_arc_df_filtered, path_arc_matrix_filtered, od_path_map_filtered = build_path_bundle_for_od(od_df_filtered, arc_df)
