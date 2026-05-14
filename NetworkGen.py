@@ -1698,7 +1698,12 @@ def main():
     print("[FILE] od:", od_csv)
 
     od_df_full = od_df.copy()
-    od_df_filtered = od_df.copy()
+    od_df_filtered = od_df[
+        (od_df["same_physical_node"] == False) &
+        (od_df["euclid_distance_km"] <= float(OD_MAX_DISTANCE_KM) * 0.75)
+    ].copy()
+    if len(od_df_filtered) == 0:
+        od_df_filtered = od_df_full.copy()
 
     path_df, path_arc_df, path_arc_matrix, od_path_map = build_path_bundle_for_od(od_df, arc_df)
     path_df_full, path_arc_df_full, path_arc_matrix_full, od_path_map_full = build_path_bundle_for_od(od_df_full, arc_df)
@@ -1749,6 +1754,7 @@ def main():
     print("[FILE] path_arc_dense:", path_dense_csv)
     print(f"[FILE] full paths/path_arc/path_dense: {path_full_csv} | {path_arc_full_csv} | {path_dense_full_csv}")
     print(f"[FILE] filtered paths/path_arc/path_dense: {path_filtered_csv} | {path_arc_filtered_csv} | {path_dense_filtered_csv}")
+    print(f"[INFO] OD full={len(od_df_full)}, filtered={len(od_df_filtered)}")
 
     path_arc_dense_csv = os.path.join(BASE_DIR, "path_arc_incidence_dense.csv")
     if EXPORT_CSV_FILES:
@@ -1763,6 +1769,8 @@ def main():
         name="path_flow_veh_h"
     )
 
+
+
     baseline_link_flow = compute_link_flow_from_path_flow(
 
     arc_bpr_eval_df = evaluate_bpr_on_arcs(
@@ -1771,7 +1779,7 @@ def main():
     )
     )
 
-    arc_bpr_eval_csv = os.path.join(BASE_DIR, "arcs_bpr_with_initial_flow.csv")
+    arc_bpr_eval_csv = os.path.join(BASE_DIR, "arcs_bpr_with_baseline_flow.csv")
     if EXPORT_CSV_FILES:
         arc_bpr_eval_df.to_csv(arc_bpr_eval_csv, index=False, encoding="utf-8-sig")
     print("[FILE] arcs with initial flow:", arc_bpr_eval_csv)
