@@ -1771,13 +1771,15 @@ def main():
 
 
 
-    baseline_link_flow = compute_link_flow_from_path_flow(
-
     arc_bpr_eval_df = evaluate_bpr_on_arcs(
         arc_df=arc_df,
-        link_flow_series=baseline_link_flow
+        link_flow_series=compute_link_flow_from_path_flow(
+            path_arc_matrix=path_arc_matrix,
+            path_flow_series=baseline_path_flow
+        )
     )
-    )
+    baseline_link_flow = arc_bpr_eval_df.set_index("arc_id")["flow_veh_h"].copy()
+    
 
     arc_bpr_eval_csv = os.path.join(BASE_DIR, "arcs_bpr_with_baseline_flow.csv")
     if EXPORT_CSV_FILES:
