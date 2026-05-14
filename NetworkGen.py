@@ -1779,12 +1779,12 @@ def main():
         )
     )
     baseline_link_flow = arc_bpr_eval_df.set_index("arc_id")["flow_veh_h"].copy()
-    
+
 
     arc_bpr_eval_csv = os.path.join(BASE_DIR, "arcs_bpr_with_baseline_flow.csv")
     if EXPORT_CSV_FILES:
         arc_bpr_eval_df.to_csv(arc_bpr_eval_csv, index=False, encoding="utf-8-sig")
-    print("[FILE] arcs with initial flow:", arc_bpr_eval_csv)
+    print("[FILE] arcs with baseline flow:", arc_bpr_eval_csv)
 
     od_demand_matrix = build_od_demand_matrix(
         customers_df=customers_df,
@@ -1825,7 +1825,14 @@ def main():
             }
         )
         print("[FILE] excel bundle:", excel_path)
+        print(f"[INFO] Fixed IESS nodes: {iess_nodes}")
+        print(f"[INFO] Fixed EVCS nodes: {evcs_nodes}")
+        print(f"[INFO] Fleet size EHDT: {FLEET_SIZE_EHDT}")
 
+
+
+    initial_path_flow = baseline_path_flow
+    initial_link_flow = baseline_link_flow
 
     data = {
         "traffic_graph": G,
