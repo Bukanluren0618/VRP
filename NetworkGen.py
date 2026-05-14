@@ -49,6 +49,9 @@ random.seed(SEED)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+EXPORT_CSV_FILES = False
+EXPORT_EXCEL_BUNDLE = True
+
 CITY_NODE_COUNT = 80
 
 NUM_CUSTOMERS = 60
@@ -1069,6 +1072,16 @@ def build_path_arc_matrix(path_df, path_arc_df, arc_df):
 
     return mat
 
+def export_bundle_to_excel(base_dir, sheets):
+    excel_path = os.path.join(base_dir, "vrp_outputs.xlsx")
+    with pd.ExcelWriter(excel_path) as writer:
+        for sheet_name, df in sheets.items():
+            if df is None:
+                continue
+            safe_sheet = str(sheet_name)[:31]
+            df.to_excel(writer, sheet_name=safe_sheet, index=False)
+    return excel_path
+
 
 def build_od_path_map(path_df):
     od_path_map = {}
@@ -1537,7 +1550,10 @@ def main():
         ] = comp_id
 
     nodes_csv = os.path.join(BASE_DIR, "nodes_xy.csv")
-    nodes_df.to_csv(nodes_csv, index=False, encoding="utf-8-sig")
+
+    if EXPORT_CSV_FILES:
+        nodes_df.to_csv(nodes_csv, index=False, encoding="utf-8-sig")
+
     print("[FILE] nodes:", nodes_csv)
 
     graph_path = os.path.join(BASE_DIR, "traffic_graph_only.pkl")
@@ -1592,7 +1608,11 @@ def main():
         congested_arc_ids = []
 
     arcs_csv = os.path.join(BASE_DIR, "arcs_bpr.csv")
-    arc_df.to_csv(arcs_csv, index=False, encoding="utf-8-sig")
+
+    if EXPORT_CSV_FILES:
+        arc_df.to_csv(arcs_csv, index=False, encoding="utf-8-sig")
+
+
 
     print(
         f"[OK] Arc table generated: "
@@ -1609,7 +1629,10 @@ def main():
     )
 
     customers_csv = os.path.join(BASE_DIR, "customers.csv")
-    customers_df.to_csv(customers_csv, index=False, encoding="utf-8-sig")
+    if EXPORT_CSV_FILES:
+        customers_df.to_csv(customers_csv, index=False, encoding="utf-8-sig")
+
+    
 
     unique_customer_nodes = customers_df["node_id"].nunique()
     duplicate_customer_count = NUM_CUSTOMERS - unique_customer_nodes
@@ -1628,7 +1651,8 @@ def main():
     )
 
     tasks_csv = os.path.join(BASE_DIR, "tasks.csv")
-    tasks_df.to_csv(tasks_csv, index=False, encoding="utf-8-sig")
+    if EXPORT_CSV_FILES:
+        tasks_df.to_csv(tasks_csv, index=False, encoding="utf-8-sig")
 
     print("[OK] Deadline-based tasks generated")
     print("[FILE] tasks:", tasks_csv)
@@ -1644,7 +1668,8 @@ def main():
     )
 
     od_csv = os.path.join(BASE_DIR, "od_pairs.csv")
-    od_df.to_csv(od_csv, index=False, encoding="utf-8-sig")
+    if EXPORT_CSV_FILES:
+        od_df.to_csv(od_csv, index=False, encoding="utf-8-sig")
 
     print(f"[OK] OD pairs generated: OD={len(od_df)}")
     print("[FILE] od:", od_csv)
@@ -1668,18 +1693,27 @@ def main():
     path_arc_filtered_csv = os.path.join(BASE_DIR, "path_arc_incidence_filtered.csv")
     path_dense_filtered_csv = os.path.join(BASE_DIR, "path_arc_incidence_dense_filtered.csv")
 
-    path_df.to_csv(path_csv, index=False, encoding="utf-8-sig")
-    path_arc_df.to_csv(path_arc_csv, index=False, encoding="utf-8-sig")
+    if EXPORT_CSV_FILES:
+        path_df.to_csv(path_csv, index=False, encoding="utf-8-sig")
+    if EXPORT_CSV_FILES:
+        path_arc_df.to_csv(path_arc_csv, index=False, encoding="utf-8-sig")
 
-    path_arc_matrix.to_csv(path_dense_csv, encoding="utf-8-sig")
+    if EXPORT_CSV_FILES:
+        path_arc_matrix.to_csv(path_dense_csv, encoding="utf-8-sig")
 
-    path_df_full.to_csv(path_full_csv, index=False, encoding="utf-8-sig")
-    path_arc_df_full.to_csv(path_arc_full_csv, index=False, encoding="utf-8-sig")
-    path_arc_matrix_full.to_csv(path_dense_full_csv, encoding="utf-8-sig")
+    if EXPORT_CSV_FILES:
+        path_df_full.to_csv(path_full_csv, index=False, encoding="utf-8-sig")
+    if EXPORT_CSV_FILES:
+        path_arc_df_full.to_csv(path_arc_full_csv, index=False, encoding="utf-8-sig")
+    if EXPORT_CSV_FILES:
+        path_arc_matrix_full.to_csv(path_dense_full_csv, encoding="utf-8-sig")
 
-    path_df_filtered.to_csv(path_filtered_csv, index=False, encoding="utf-8-sig")
-    path_arc_df_filtered.to_csv(path_arc_filtered_csv, index=False, encoding="utf-8-sig")
-    path_arc_matrix_filtered.to_csv(path_dense_filtered_csv, encoding="utf-8-sig")
+    if EXPORT_CSV_FILES:
+        path_df_filtered.to_csv(path_filtered_csv, index=False, encoding="utf-8-sig")
+    if EXPORT_CSV_FILES:
+        path_arc_df_filtered.to_csv(path_arc_filtered_csv, index=False, encoding="utf-8-sig")
+    if EXPORT_CSV_FILES:
+        path_arc_matrix_filtered.to_csv(path_dense_filtered_csv, encoding="utf-8-sig")
 
     print(
         f"[OK] Candidate paths generated: "
@@ -1694,7 +1728,8 @@ def main():
     print(f"[FILE] filtered paths/path_arc/path_dense: {path_filtered_csv} | {path_arc_filtered_csv} | {path_dense_filtered_csv}")
 
     path_arc_dense_csv = os.path.join(BASE_DIR, "path_arc_incidence_dense.csv")
-    path_arc_matrix.to_csv(path_arc_dense_csv, encoding="utf-8-sig")
+    if EXPORT_CSV_FILES:
+        path_arc_matrix.to_csv(path_arc_dense_csv, encoding="utf-8-sig")
     print("[FILE] path_arc_dense:", path_arc_dense_csv)
 
     od_path_map = build_od_path_map(path_df)
@@ -1731,7 +1766,8 @@ def main():
     )
 
     arc_bpr_eval_csv = os.path.join(BASE_DIR, "arcs_bpr_with_initial_flow.csv")
-    arc_bpr_eval_df.to_csv(arc_bpr_eval_csv, index=False, encoding="utf-8-sig")
+    if EXPORT_CSV_FILES:
+        arc_bpr_eval_df.to_csv(arc_bpr_eval_csv, index=False, encoding="utf-8-sig")
     print("[FILE] arcs with initial flow:", arc_bpr_eval_csv)
 
     od_demand_matrix = build_od_demand_matrix(
@@ -1747,11 +1783,33 @@ def main():
     od_demand_matrix_csv = os.path.join(BASE_DIR, "od_demand_matrix.csv")
     od_time_matrix_csv = os.path.join(BASE_DIR, "od_free_flow_time_matrix.csv")
 
-    od_demand_matrix.to_csv(od_demand_matrix_csv, encoding="utf-8-sig")
-    od_time_matrix.to_csv(od_time_matrix_csv, encoding="utf-8-sig")
+    if EXPORT_CSV_FILES:
+        od_demand_matrix.to_csv(od_demand_matrix_csv, encoding="utf-8-sig")
+    if EXPORT_CSV_FILES:
+        od_time_matrix.to_csv(od_time_matrix_csv, encoding="utf-8-sig")
 
     print("[FILE] od demand matrix:", od_demand_matrix_csv)
     print("[FILE] od time matrix:", od_time_matrix_csv)
+
+    if EXPORT_EXCEL_BUNDLE:
+        excel_path = export_bundle_to_excel(
+            base_dir=BASE_DIR,
+            sheets={
+                "nodes": nodes_df,
+                "arcs_bpr": arc_df,
+                "customers": customers_df,
+                "tasks": tasks_df,
+                "od_pairs": od_df,
+                "candidate_paths": path_df,
+                "path_arc_incidence": path_arc_df,
+                "path_arc_dense": path_arc_matrix.reset_index(),
+                "arcs_bpr_with_flow": arc_bpr_eval_df,
+                "od_demand_matrix": od_demand_matrix.reset_index().rename(columns={"index": "origin_customer_id"}),
+                "od_free_flow_time_matrix": od_time_matrix.reset_index().rename(columns={"index": "origin_customer_id"})
+            }
+        )
+        print("[FILE] excel bundle:", excel_path)
+
 
     data = {
         "traffic_graph": G,
