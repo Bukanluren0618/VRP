@@ -364,6 +364,7 @@ def build_bpr_arc_table(
                 "to_node": int(to_node),
                 "length_km": float(length_km),
                 "t0_h": float(t0_h),
+                "ideal_time_h": float(t0_h),
                 "capacity_veh_h": float(capacity_veh_h),
                 "alpha": float(alpha),
                 "beta": float(beta),
@@ -780,6 +781,7 @@ def build_od_pairs_from_customers(
 
             o_task = task_lookup[o["customer_id"]]
             d_task = task_lookup[d["customer_id"]]
+
 
             task_demand_factor = 0.5 * (float(o_task["demand"]) + float(d_task["demand"]))
             distance_ratio = float(euclid_km) / max(float(od_max_distance_km), 1e-9)
@@ -1578,6 +1580,7 @@ def main():
 
     if EXPORT_CSV_FILES:
         nodes_df.to_csv(nodes_csv, index=False, encoding="utf-8-sig")
+        
 
     print("[FILE] nodes:", nodes_csv)
 
@@ -1765,13 +1768,18 @@ def main():
 
     od_path_map = build_od_path_map(path_df)
 
+    baseline_link_flow = pd.Series(
+        0.0,
+        index=arc_df["arc_id"].astype(int),
+        name="flow_veh_h"
+    )
+
+
     baseline_path_flow = pd.Series(
         0.0,
         index=path_arc_matrix.index,
         name="path_flow_veh_h"
     )
-
-
 
     arc_bpr_eval_df = evaluate_bpr_on_arcs(
         arc_df=arc_df,
