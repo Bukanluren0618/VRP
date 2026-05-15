@@ -54,20 +54,20 @@ EXPORT_EXCEL_BUNDLE = True
 
 CITY_NODE_COUNT = 80
 
-NUM_CUSTOMERS = 60
-NUM_UNIQUE_CUSTOMER_NODES = 40
+NUM_CUSTOMERS = 80
+NUM_UNIQUE_CUSTOMER_NODES = 50
 NUM_DUPLICATED_CUSTOMERS = NUM_CUSTOMERS - NUM_UNIQUE_CUSTOMER_NODES
 
-CITY_SCALE_KM = 45.0
-AVG_SPEED_KMH = 40.0
+CITY_SCALE_KM = 12.0
+AVG_SPEED_KMH = 50.0
 
 
 # ============================= Task demand / unloading amount parameters =============================
 
 # Here, task demand is treated as unloading amount.
-DEMAND_SMALL_RANGE = (0.5, 2.0)
-DEMAND_MEDIUM_RANGE = (2.0, 5.0)
-DEMAND_LARGE_RANGE = (5.0, 8.0)
+DEMAND_SMALL_RANGE = (1.0, 2.0)
+DEMAND_MEDIUM_RANGE = (2.0, 40)
+DEMAND_LARGE_RANGE = (4.0, 6.0)
 
 DEMAND_CLASS_PROBS = {
     "small": 0.35,
