@@ -1,494 +1,583 @@
-# -*- coding: utf-8 -*-
-
-import sys
-
-try:
-    sys.stdout.reconfigure(encoding="utf-8")
-    sys.stderr.reconfigure(encoding="utf-8")
-except Exception:
-    pass
-
-
-import gurobipy as gp
-from gurobipy import GRB
+# brf_scip.py — Class-Based BPR Traffic Assignment with EV Charging
+# =================================================================
+# Classes:
+#   BrfDataHandler — 数据处理: 加载/EVCS-IESS生成/虚拟节点-弧/EV路径扩展
+#   BrfSolver      — 模型求解 + 后处理 (BPR迭代收敛)
+# =================================================================
 import numpy as np
-import math
 import pandas as pd
 import random
 from collections import defaultdict
 import warnings
-# import pyscipopt as gp
+import pyscipopt as scip
 import pickle
-import ast
-
-# ========================
-# 字符串列表 → 真正列表
-# ========================
-def str_to_list(s):
-    try:
-        return ast.literal_eval(s)
-    except:
-        return []
 warnings.filterwarnings('ignore')
+random.seed(10)
 
 
+# ============================================================
+# BrfDataHandler
+# ============================================================
+class BrfDataHandler:
+    def __init__(self, pickle_path='./raw_data_bpr.pkl',
+                 evcs_num=10, iess_num=5, ev_ratio=0.3,
+                 ev_ele_vol=50, ev_wait_time=0.1,
+                 iess_nodes=None, evcs_nodes=None,
+                 ele_price=None, elc_vol=None):
+        print("=" * 70 + "\nBrfDataHandler: 加载数据\n" + "=" * 70)
 
-# 数据处理
-# data = pd.read_excel('./new_data_bpr.xlsx',sheet_name=None)
-data = pd.read_pickle('./raw_data_bpr.pkl')
+        data = pd.read_pickle(pickle_path)
+        self.node_df = data['nodes_df'].copy()
+        self.od_df = data['od_df'].copy()
+        self.arc_df = data['arc_df'].copy()
+        self.path_arc_df = data['path_arc_df'].copy()
+        self.path_df = data['path_df'].copy()
 
-# data = {}
-# data['nodes_df'] = pd.read_csv('nodes_df.csv')
-# data['od_df'] =  pd.read_csv('od_df.csv')
-# data['arc_df'] = pd.read_csv('arc_df.csv')
-# data['path_arc_df'] = pd.read_csv('path_arc_df.csv')
-# data['path_df'] =  pd.read_csv('path_df.csv')
-# data['path_df']["arc_path"] = data['path_df']["arc_path"].apply(str_to_list)
-# data['path_df']["node_path"] = data['path_df']["node_path"].apply(str_to_list)
-# with open('new_data_bpr.pkl','rb') as f:
-#     data = pickle.load(f)
+        # ---- 导出副本 ----
+        new_data = {
+            'nodes_df': data['nodes_df'], 'od_df': data['od_df'],
+            'arc_df': data['arc_df'], 'path_arc_df': data['path_arc_df'],
+            'path_df': data['path_df']
+        }
+        with pd.ExcelWriter('data_bpr.xlsx') as writer:
+            for k in new_data:
+                data[k].to_excel(writer, sheet_name=k, index=False)
 
-# with pd.ExcelWriter(f'new_data_bpr.xlsx') as writer:
-#     for k in data.keys():
-#         data[k].to_excel(writer, sheet_name=k, index=False)
+        # ---- EVCS / IESS (接受外部注入或随机生成) ----
+        self.EV_RATIO = ev_ratio
+        self.EV_ELE_VOL = ev_ele_vol
+        self.EV_WAIT_TIME = ev_wait_time
 
-node_df = data['nodes_df']
+        all_nodes = self.node_df['node_id'].unique().tolist()
 
-#随机生成充电站节点
-EVCS_NUM = 10
-
-IESS_NUM = 5
-
-EV_RATIO = 0.3  #30%的EV需要充电
-
-EV_ELE_VOL = 50 #充电的EV的充电量为50KWh 算成本
-
-EV_WIAT_TIME = 0.05 #充电时长 由充电量/充电速率计算 单位为小时
-
-
-all_nodes = node_df['node_id'].unique().tolist()
-
-EVCS_nodes = random.sample(all_nodes, EVCS_NUM)
-
-IESS_nodes = random.sample(list(set(all_nodes) - set(EVCS_nodes)), IESS_NUM)
-
-# 随机生成每个充电节点的电价,后续由电网侧影子价格控制
-ele_price_dict = {n:round(random.random() * 100,2) for n in EVCS_nodes + IESS_nodes}
-
-# 每个充电节点的容量,用于排队计算
-elc_vol_dict = {n:np.ceil(random.random() * 10) for n in EVCS_nodes + IESS_nodes}
-
-#将虚拟的充电节点写入node表中
-for ev_node in EVCS_nodes + IESS_nodes:
-    row = node_df[node_df['node_id']==ev_node]
-    row['node_id'] = 'vir_' + str(ev_node)
-    node_df = pd.concat([node_df,row],ignore_index=True)
-
-#提取od对
-od_pairs_df = data['od_df']
-
-od_pairs_df['pairs_demand'] = od_pairs_df.apply(lambda x: (x['origin_customer_index'],x['destination_customer_index'],x['demand_veh_h']), axis=1)
-
-od_pairs_dict = od_pairs_df.set_index('od_id').to_dict()['pairs_demand']
-
-#arc info
-# 针对EVCS和IESS节点，虚拟一条path，这个path专供EV充电
-arc_df = data['arc_df']
-arc_to_virArcId = defaultdict()
-for ev_node in EVCS_nodes + IESS_nodes:
-    row_df = arc_df[arc_df['to_node']==ev_node] 
-    for _, row in row_df.iterrows():
-        row_copy = row.copy()
-        row_copy['to_node'] = 'vir_' + str(ev_node)
-        arc_in = 'arc_' + str(row['from_node']) + '_vir_' + str(ev_node)
-        row_copy['arc_id'] = arc_in
-        row_copy['capacity_veh_h'] = elc_vol_dict[ev_node]
-        arc_df.loc[len(arc_df)] = row_copy
-        row_copy = row.copy()
-        row_copy['from_node'] = 'vir_' + str(ev_node)
-        arc_out = 'arc_vir_' + str(ev_node) + '_'  + str(ev_node)
-        row_copy['arc_id'] = arc_out
-        row_copy['capacity_veh_h'] = elc_vol_dict[ev_node]
-        row_copy['t0_h'] = 0
-        arc_df.loc[len(arc_df)] = row_copy
-        arc_to_virArcId[row['arc_id']] = [arc_in, arc_out]
-#计算精度为1e-6，将通行时间转化为分钟，并扩大十倍
-arc_df['t0_h'] *= 600
-arc_df['infos'] = arc_df.apply(lambda x: (x['t0_h'],x['capacity_veh_h'],x['alpha'],x['beta']),axis=1)
-arc_info_dict = arc_df.set_index('arc_id').to_dict()['infos']
-arc_st_dict = arc_df.set_index('arc_id').to_dict()['from_node']
-arc_ed_dict = arc_df.set_index('arc_id').to_dict()['to_node']
-
-# od->path
-
-ev_arcs_df = arc_df[arc_df['to_node'].isin(IESS_nodes+EVCS_nodes)]
-ev_all_arcs = ev_arcs_df['arc_id'].unique().tolist()
-
-path_arc_incidence_df = data['path_arc_df']
-ev_related_df = path_arc_incidence_df[path_arc_incidence_df['arc_id'].isin(ev_all_arcs)]
-#记录所有受影响的OD&PATH
-# ev_influence_ods = ev_related_df.values.tolist()
-
-candidate_paths_df = data['path_df']
-candidate_paths_df['is_ev'] = 0
-
-ev_path_df = pd.DataFrame(columns=candidate_paths_df.columns)
-visited_op = set()
-for row in ev_related_df.itertuples():
-    arc_id = row.arc_id
-    ev_node = arc_ed_dict[arc_id]
-    if (row.od_id, row.path_id) in visited_op: continue
-    visited_op.add((row.od_id, row.path_id))
-    ev_row = candidate_paths_df[(candidate_paths_df['path_id']==row.path_id) & (candidate_paths_df['od_id']==row.od_id)].iloc[0]
-    # 将虚拟节点追加进去
-    new_path, new_node_list = [],[]
-    for arc_id in ev_row['arc_path']:
-        cur_arc_id = []
-        if arc_id in arc_to_virArcId:
-            new_path += arc_to_virArcId[arc_id]
-            cur_arc_id = arc_to_virArcId[arc_id]
+        if iess_nodes is not None:
+            self.IESS_nodes = list(iess_nodes)
         else:
-            new_path.append(arc_id)
-            cur_arc_id = [arc_id]
-        for ca_id in cur_arc_id:
-            if len(new_node_list) == 0:
-                new_node_list.append(arc_st_dict[ca_id])
-                new_node_list.append(arc_ed_dict[ca_id])
-            else:
-                new_node_list.append(arc_ed_dict[ca_id])
-    ev_row['is_ev'] = 1
-    ev_row['arc_path'] = new_path
-    ev_row['node_path'] = new_node_list
-    ev_row['path_id'] = 'ev_' + str(ev_row['path_id'])  
-    ev_row['local_path_id'] =  str(ev_row['path_id'])
-    candidate_paths_df.loc[len(candidate_paths_df)] = ev_row
-    #把虚拟的path加入
-    for ca_id in new_path:
-        path_arc_row = ev_related_df.head(1).copy()
-        path_arc_row['path_id'] =  str(ev_row['path_id'])  
-        path_arc_row['od_id'] = row.od_id
-        path_arc_row['arc_id'] = ca_id
-        path_arc_incidence_df = pd.concat([path_arc_incidence_df, path_arc_row], ignore_index=True)
+            self.IESS_NUM = iess_num
+            self.IESS_nodes = random.sample(all_nodes, iess_num)
 
-print('EVCS+IESS node: ', EVCS_nodes + IESS_nodes)
-arc_df.drop_duplicates(subset=['arc_id'], keep='first', inplace=True)
-node_df.to_csv('node_df.csv', index=False)
-arc_df.to_csv('arcs_bpr.csv', index=False)
-candidate_paths_df.to_csv('candidate_paths.csv', index=False)
-path_arc_incidence_df.to_csv('path_arc_incidence.csv', index=False)
-
-algo_input_dict = {'node_df': node_df, 'arc_df': arc_df, 'candicate_paths_df': candidate_paths_df, 
-                   'path_arc_df': path_arc_incidence_df,'IESS_node':IESS_nodes, 'EVCS_node': EVCS_nodes,
-                   'elc_price': ele_price_dict,'elc_vol':elc_vol_dict,'od_pairs': od_pairs_df}
-
-print()
-
-#开始建模
-
-def build_Model(algo_input_dict):
-    node_df = algo_input_dict['node_df']
-    arc_df = algo_input_dict['arc_df']
-    candidate_paths_df = algo_input_dict['candicate_paths_df']
-    path_arc_df = algo_input_dict['path_arc_df']
-    IESS_nodes = algo_input_dict['IESS_node']
-    EVCS_nodes = algo_input_dict['EVCS_node']
-    elc_price = algo_input_dict['elc_price']
-    elc_vol = algo_input_dict['elc_vol']
-    od_pairs_df = algo_input_dict['od_pairs']
-    #每个od对可行paths
-    od_path_dict = candidate_paths_df.groupby('od_id').apply(lambda x: x['path_id'].unique().tolist()).to_dict()
-    od_ev_path_dict = candidate_paths_df[candidate_paths_df['is_ev']==1].groupby('od_id').apply(lambda x: x['path_id'].unique().tolist()).to_dict()
-    od_demand_dict = od_pairs_df.set_index('od_id').to_dict()['demand_veh_h']
-    all_nodes_list = node_df['node_id'].unique().tolist()
-    path_arcs_dict = candidate_paths_df.set_index('path_id').to_dict()['arc_path']
-    arc_path_dict = path_arc_df.groupby('arc_id').apply(lambda x: list(zip(x['od_id'],x['path_id']))).to_dict()
-    
-    arc_info_dict = arc_df.set_index('arc_id').to_dict()['infos']
-    node_arcIn_dict = arc_df.groupby('to_node').apply(lambda x: x['arc_id'].unique().tolist()).to_dict()
-    node_arcOut_dict = arc_df.groupby('from_node').apply(lambda x: x['arc_id'].unique().tolist()).to_dict()
-    vars_dict = {}
-    model = gp.Model("Convex_TAP_Gurobi")
-    for od in od_path_dict:
-        for p in od_path_dict[od]:
-            vars_dict['xop',(od,p)] = model.addVar(lb=0, name=f"xop_{od}_{p}")
-    for arc_id in arc_path_dict:
-        vars_dict['ya',arc_id] = model.addVar(lb=0, name=f"ya_{arc_id}")
-        vars_dict['ya5',arc_id] = model.addVar(lb=0, name=f"ya5_{arc_id}")
-        vars_dict['bpr',arc_id] = model.addVar(lb=0, name=f"bpr_{arc_id}")
-    #约束1 每个od对path流量之和等于设定值
-    for od in od_path_dict:
-        model.addConstr(gp.quicksum(vars_dict['xop',(od,p)] for p in od_path_dict[od]) == od_demand_dict[od])
-    # 约束2 每个arc的流量等于所有经过此路径的path之和
-    for arc_id in arc_path_dict:
-        model.addConstr(vars_dict['ya',arc_id] == gp.quicksum(vars_dict['xop',(od,p)] for od, p in arc_path_dict[arc_id]))
-    
-    # #约束3 节点流量平衡
-    # for node in all_nodes_list:
-    #     model.addConstr(gp.quicksum(vars_dict.get(('ya',arc_id),0) for arc_id in node_arcIn_dict[node]) 
-    #                     == gp.quicksum(vars_dict.get(('ya',arc_id),0) for arc_id in node_arcOut_dict[node]) )
-    
-    # 约束4 bpr定义式
-    for arc_id in arc_path_dict:
-        infos = arc_info_dict[arc_id]
-        to_h, c, alpha, beta = infos
-        pow_coff = 2 #若想改为5次方，修改为5即可
-        # pow_coff = int(beta) #若想使用配置表里的数据，换成此行即可
-        # model.addGenConstrPow(vars_dict['ya',arc_id], vars_dict['ya5',arc_id], pow_coff,"gf", "FuncPieces=1000")
-        model.addConstr(vars_dict['ya5',arc_id]  == vars_dict['ya',arc_id] * vars_dict['ya',arc_id])
-        coff = to_h * alpha / math.pow(c, pow_coff)
-        if to_h == 0 or coff <= 1e-5:
-            model.addConstr(vars_dict['bpr',arc_id] == 0)
+        if evcs_nodes is not None:
+            self.EVCS_nodes = list(evcs_nodes)
         else:
-            model.addConstr( vars_dict['bpr',arc_id] == to_h * (1 + alpha * vars_dict['ya5',arc_id] / math.pow(c, pow_coff)))
-    
-    #所有od对总充电的流量满足百分比
-    total_demand = sum([od_demand_dict[od] for od in od_ev_path_dict])
-    model.addConstr(gp.quicksum(gp.quicksum(vars_dict['xop',(od,p)] for p in od_ev_path_dict.get(od,[])) for od in od_demand_dict) == total_demand * EV_RATIO)
+            self.EVCS_NUM = evcs_num
+            remaining = list(set(all_nodes) - set(self.IESS_nodes))
+            self.EVCS_nodes = random.sample(remaining, evcs_num)
 
-    # 电站等待时间  & 充电量
-    for ev_node in IESS_nodes + EVCS_nodes:
-        #等待时间
-        vir_ev_node = 'vir_' + str(ev_node)
-        vars_dict['ev_node_wt',vir_ev_node] = model.addVar(lb=0, name=f'ev_node_wt_{vir_ev_node}')
-        vars_dict['ev_node_in',vir_ev_node] = model.addVar(lb=0, name=f'ev_node_in_{vir_ev_node}')
-        model.addConstr(vars_dict['ev_node_in',vir_ev_node] == gp.quicksum(vars_dict.get(('ya',arc_id),0) for arc_id in node_arcIn_dict[vir_ev_node]))
-        model.addConstr(vars_dict['ev_node_wt',vir_ev_node] >= EV_WIAT_TIME * (vars_dict['ev_node_in',vir_ev_node] -  elc_vol_dict[ev_node]))
+        if ele_price is not None:
+            self.ele_price = dict(ele_price)
+        else:
+            self.ele_price = {
+                n: round(random.random() * 100, 2)
+                for n in self.EVCS_nodes + self.IESS_nodes
+            }
 
-    # 目标: bpr时间+ev 排队时间 + 买电花销
-    obj = gp.LinExpr()
-    bpr_coff, ev_wait_coff, cost_coff = 1,1,1
-    for arc_id in arc_info_dict:
-        obj += vars_dict.get(('bpr',arc_id),0) * bpr_coff
-    for ev_node in IESS_nodes + EVCS_nodes:
-        vir_ev_node = 'vir_' + str(ev_node)
-        obj += vars_dict['ev_node_wt',vir_ev_node] * ev_wait_coff
-        obj += vars_dict['ev_node_in',vir_ev_node] * cost_coff * elc_price[ev_node] * EV_ELE_VOL
-    
-    model.setObjective(obj, GRB.MINIMIZE)
-    # model.setObjective(obj, sense='minimize')
-    model.setParam("NonConvex", 2)
-    model.setParam("OutputFlag", 1)
-    # model.writeProblem('D://model.lp')
-    model.optimize()
-    status = model.status
-    if status == GRB.INFEASIBLE:
-        print("\n❌ 模型不可行，开始计算冲突约束...")
-        model.computeIIS()
-        model.write("infeasibility_report.ilp")
-    # 保存结果
-    xop_i, ev_in, ya_i, bpr_i = {},{},{},{}
-    for od in od_path_dict:
-        for p in od_path_dict[od]:
-            xop_i[od,p] = vars_dict['xop',(od,p)].X
-    for ev_node in IESS_nodes + EVCS_nodes:
-        vir_ev_node = 'vir_' + str(ev_node)
-        ev_in[ev_node] = vars_dict['ev_node_in',vir_ev_node].X
-    for arc_id in arc_path_dict:
-        ya_i[arc_id] = vars_dict['ya',arc_id].X
-        bpr_i[arc_id] = vars_dict['bpr',arc_id].X
-    
-    res_dict = {'xop':xop_i, 'ev':ev_in, 'ya':ya_i, 'bpr':bpr_i}
-    with open('traficNetWorkFlowRes.pkl','wb+') as f:
-        pickle.dump(res_dict,f)
-    print('traficNetWorkFlow Over')
-    return res_dict
+        if elc_vol is not None:
+            self.elc_vol = dict(elc_vol)
+        else:
+            self.elc_vol = {
+                n: np.ceil(random.random() * 10)
+                for n in self.EVCS_nodes + self.IESS_nodes
+            }
 
+        print(f"  EVCS: {len(self.EVCS_nodes)}, IESS: {len(self.IESS_nodes)}")
+        print(f' ele price: {self.ele_price}' )
 
-def postHandel(algo_input_dict,res_pkl):
-    MAX_ITER = 50          # 最大迭代次数
-    CONVERGE_THRESH = 0.01 # 收敛阈值：通行时间变化 < 0.01 分钟即稳定
-    MAX_MINUTE = 24*60        # 最大时间范围
-    res = pd.read_pickle(res_pkl)
-    xop = res['xop']
-    over_day_rows = []
-    # ev = res['ev']
-    # ya = res['ya']
-    # bpr = res['bpr']
-    candidate_paths_df = algo_input_dict['candicate_paths_df']
-    od_path_dict = candidate_paths_df.groupby('od_id').apply(lambda x: x['path_id'].unique().tolist()).to_dict()
-    arc_df = algo_input_dict['arc_df']
-    arc_info_dict = arc_df.set_index('arc_id').to_dict()['infos']
-    xop_i, ev_in = [],[]
-    eps = 1e-3
-    for od in od_path_dict:
-        for p in od_path_dict[od]:
-            x_val = xop.get((od,p),0)
-            if x_val > eps:
-                xop_i.append((od, p, x_val, 0))
-    xop_df = pd.DataFrame(xop_i, columns=['od_id','path_id','qty','startTime'])
+        # ---- 虚拟充电节点 ----
+        for ev_node in self.EVCS_nodes + self.IESS_nodes:
+            row = self.node_df[self.node_df['node_id'] == ev_node].copy()
+            row['node_id'] = 'vir_' + str(ev_node)
+            self.node_df = pd.concat([self.node_df, row], ignore_index=True)
 
-    xop_df = pd.merge(xop_df, candidate_paths_df[['od_id','path_id','arc_path']], how='left',on=['od_id','path_id'])
-   
+        # ---- OD 处理 ----
+        self.od_df['pairs_demand'] = self.od_df.apply(
+            lambda x: (x['origin_customer_index'],
+                       x['destination_customer_index'],
+                       x['demand_veh_h']),
+            axis=1
+        )
+        self.od_pairs_dict = self.od_df.set_index('od_id')['pairs_demand'].to_dict()
 
-    # ===================== 3. 初始化 =====================
-    # 路段字典
-    arc_info = {aid: {"t0":t0, "c":c, "a":a, "b":b} for aid,(t0,c,a,b) in arc_info_dict.items()}
-    arcs = list(arc_info.keys())
-    od_data = xop_df[['od_id','path_id','arc_path','qty','startTime']].values.tolist()
-    # 初始化：所有时刻所有路段 通行时间=自由流时间（迭代0）
-    prev_tt = defaultdict(lambda: defaultdict(float))
-    for a in arcs:
-        for t in range(MAX_MINUTE):
-            prev_tt[a][t] = arc_info[a]["t0"] / 10 #剔除十倍影响
+        # ---- 虚拟弧 ----
+        arc_to_vir = {}
+        for ev_node in self.EVCS_nodes + self.IESS_nodes:
+            rows = self.arc_df[self.arc_df['to_node'] == ev_node]
+            for _, row in rows.iterrows():
+                rc_in = row.copy()
+                rc_in['to_node'] = 'vir_' + str(ev_node)
+                arc_in = f"arc_{row['from_node']}_vir_{ev_node}"
+                rc_in['arc_id'] = arc_in
+                rc_in['capacity_veh_h'] = self.elc_vol[ev_node]
+                self.arc_df.loc[len(self.arc_df)] = rc_in
 
-    # ===================== 4. 迭代主循环 =====================
-    for it in range(MAX_ITER):
-        print(f"\n===== 迭代 {it+1}/{MAX_ITER} =====")
+                rc_out = row.copy()
+                rc_out['from_node'] = 'vir_' + str(ev_node)
+                arc_out = f"arc_vir_{ev_node}_{ev_node}"
+                rc_out['arc_id'] = arc_out
+                rc_out['capacity_veh_h'] = self.elc_vol[ev_node]
+                rc_out['t0_h'] = 0
+                self.arc_df.loc[len(self.arc_df)] = rc_out
 
-        # ---------- 步骤A：加载流量：按【上一轮通行时间】计算车辆到达路段的时间 ----------
-        arc_flow = defaultdict(lambda: defaultdict(float))  # arc -> t -> flow
+                arc_to_vir[row['arc_id']] = [arc_in, arc_out]
 
-        for od_id, path_id, path, qty, st in od_data:
-            current_time = float(st)  # 车辆出发时间
+        # t0_h → 分钟
+        self.arc_df['t0_h'] *= 60
+        self.arc_df['infos'] = self.arc_df.apply(
+            lambda x: (x['t0_h'], x['capacity_veh_h'], x['alpha'], x['beta']),
+            axis=1
+        )
+        self.arc_info = self.arc_df.set_index('arc_id')['infos'].to_dict()
+        self.arc_st = self.arc_df.set_index('arc_id')['from_node'].to_dict()
+        self.arc_ed = self.arc_df.set_index('arc_id')['to_node'].to_dict()
 
-            for arc_order, arc in enumerate(path):
-                # 进入当前路段的时间（已受前面路段拥堵影响）
-                enter_t = round(current_time)
+        # ---- EV 相关路径扩展 ----
+        ev_arcs = self.arc_df[
+            self.arc_df['to_node'].isin(self.IESS_nodes + self.EVCS_nodes)
+        ]
+        ev_all_arcs = ev_arcs['arc_id'].unique().tolist()
+        ev_related = self.path_arc_df[self.path_arc_df['arc_id'].isin(ev_all_arcs)]
 
-                if 0 <= enter_t < MAX_MINUTE:
-                    arc_flow[arc][enter_t] += qty
+        self.path_df['is_ev'] = 0
+        visited = set()
+        for row in ev_related.itertuples():
+            aid = row.arc_id
+            ev_node = self.arc_ed[aid]
+            if (row.od_id, row.path_id) in visited:
+                continue
+            visited.add((row.od_id, row.path_id))
+            ev_row = self.path_df[
+                (self.path_df['path_id'] == row.path_id) &
+                (self.path_df['od_id'] == row.od_id)
+            ].iloc[0]
+
+            new_path = []
+            new_node_list = []
+            for a in ev_row['arc_path']:
+                if a in arc_to_vir:
+                    new_path += arc_to_vir[a]
+                    cur_ids = arc_to_vir[a]
                 else:
-                    print('超出一天，', enter_t, ' min')
-
-                    over_day_rows.append({
-                        "iteration": it + 1,
-                        "od_id": od_id,
-                        "path_id": path_id,
-                        "arc_order": arc_order + 1,
-                        "arc": arc,
-                        "from_node": arc_st_dict.get(arc, None),
-                        "to_node": arc_ed_dict.get(arc, None),
-                        "qty": qty,
-                        "startTime": st,
-                        "enter_time_min": enter_t,
-                        "enter_time_hour": round(enter_t / 60, 3),
-                        "overflow_min": enter_t - MAX_MINUTE,
-                        "overflow_hour": round((enter_t - MAX_MINUTE) / 60, 3)
-                    })
-
-                # 超出一天时，不能直接用 prev_tt[arc][enter_t]，否则 enter_t 已经越界
-                safe_t = min(max(enter_t, 0), MAX_MINUTE - 1)
-
-                # 用【上一轮迭代的通行时间】驶出该路段
-                tt = prev_tt[arc][safe_t]
-                current_time += tt
-                # ---------- 步骤B：用BPR计算新通行时间 ----------
-                new_tt = defaultdict(lambda: defaultdict(float))
-                max_diff = 0.0
-
-        for a in arcs:
-            #正常path
-            t0 = arc_info[a]["t0"]
-            c = arc_info[a]["c"]
-            alpha = arc_info[a]["a"]
-            beta = arc_info[a]["b"]
-
-            for t in range(MAX_MINUTE):
-                f = arc_flow[a].get(t, 0.0)
-                if c <= 0:
-                    tt = t0
-                elif 'vir' not in str(a) : #正常arc；BPR计算时间
-                    ratio = f / c
-                    tt = t0 * (1 + alpha * (ratio ** beta))
-                else: #充电等待耗时
-                    if t0 == 0:
-                        tt = 0
+                    new_path.append(a)
+                    cur_ids = [a]
+                for ca_id in cur_ids:
+                    if len(new_node_list) == 0:
+                        new_node_list += [self.arc_st[ca_id], self.arc_ed[ca_id]]
                     else:
-                        ev_node = int(arc_ed_dict[a][4:])
-                        tt = EV_WIAT_TIME * max(f - elc_vol_dict[ev_node],0)
+                        new_node_list.append(self.arc_ed[ca_id])
 
-                new_tt[a][t] = tt
-                max_diff = max(max_diff, abs(tt - prev_tt[a][t]))
-                # if abs(tt - prev_tt[a][t]) > 100:
-                #     print()
-        
+            ev_row_copy = ev_row.to_dict()
+            ev_row_copy['is_ev'] = 1
+            ev_row_copy['arc_path'] = new_path
+            ev_row_copy['node_path'] = new_node_list
+            ev_row_copy['path_id'] = 'ev_' + str(ev_row_copy['path_id'])
+            ev_row_copy['local_path_id'] = str(ev_row_copy['path_id'])
+            self.path_df.loc[len(self.path_df)] = ev_row_copy
 
-        # ---------- 步骤C：判断收敛 ----------
-        print(f"最大通行时间变化: {max_diff:.4f}")
-        prev_tt = new_tt
+            for ca_id in new_path:
+                par = ev_related.head(1).copy()
+                par['path_id'] = str(ev_row_copy['path_id'])
+                par['od_id'] = row.od_id
+                par['arc_id'] = ca_id
+                self.path_arc_df = pd.concat(
+                    [self.path_arc_df, par], ignore_index=True
+                )
 
-        if max_diff < CONVERGE_THRESH:
-            print("已收敛")
-            break
+        self.arc_df.drop_duplicates(subset=['arc_id'], keep='first', inplace=True)
 
-    
+        print(f"  EVCS+IESS node: {self.EVCS_nodes + self.IESS_nodes}")
+        print("  Data ready.")
 
-    # ===================== 5. 输出最终结果 =====================
-    rows = []
-    for a in arcs:
-        for t in range(MAX_MINUTE):
-            rows.append({
-                "arc": a,
-                "time": t,
-                "run_time": round(prev_tt[a][t], 3),
-                't0_h': arc_info_dict[a][0],
-                'c': arc_info_dict[a][1],
-                'alpha': arc_info_dict[a][2],
-                'beta':arc_info_dict[a][-1]
-            })
-    df = pd.DataFrame(rows)
-    df = df.sort_values(["arc", "time"]).reset_index(drop=True)
-    #处理电站节点&换电量&换电时间
-    df['from_node'] = df['arc'].map(arc_st_dict)
-    df['to_node'] = df['arc'].map(arc_ed_dict)
-    def judge_type(x):
-        if 'vir' in str(x['arc']):
-            if int(x['arc'].split('_')[-1]) in IESS_nodes:
-                return 'IESS'
+    def get_input_dict(self):
+        return {
+            'node_df': self.node_df,
+            'arc_df': self.arc_df,
+            'candicate_paths_df': self.path_df,
+            'path_arc_df': self.path_arc_df,
+            'IESS_node': self.IESS_nodes,
+            'EVCS_node': self.EVCS_nodes,
+            'elc_price': self.ele_price,
+            'elc_vol': self.elc_vol,
+            'od_pairs': self.od_df,
+        }
+
+
+class BrfSolver:
+    def __init__(self, dh: BrfDataHandler):
+        self.dh = dh
+        self.algo_input = dh.get_input_dict()
+        self._build_model()
+
+    def _build_model(self):
+        inp = self.algo_input
+        node_df = inp['node_df']
+        arc_df = inp['arc_df']
+        path_df = inp['candicate_paths_df']
+        path_arc_df = inp['path_arc_df']
+        IESS_nodes = inp['IESS_node']
+        EVCS_nodes = inp['EVCS_node']
+        elc_price = inp['elc_price']
+        elc_vol = inp['elc_vol']
+        od_df = inp['od_pairs']
+
+        # OD → paths
+        self.od_path_dict = path_df.groupby('od_id')['path_id'].apply(
+            lambda x: x.unique().tolist()
+        ).to_dict()
+        ev_mask = path_df['is_ev'] == 1
+        self.od_ev_path_dict = path_df[ev_mask].groupby('od_id')['path_id'].apply(
+            lambda x: x.unique().tolist()
+        ).to_dict()
+        self.od_demand_dict = od_df.set_index('od_id')['demand_veh_h'].to_dict()
+
+        # arc → [(od, path)]
+        self.arc_path_dict = path_arc_df.groupby('arc_id').apply(
+            lambda x: list(zip(x['od_id'], x['path_id']))
+        ).to_dict()
+
+        self.arc_info_dict = arc_df.set_index('arc_id')['infos'].to_dict()
+        self.node_arc_in = arc_df.groupby('to_node')['arc_id'].apply(
+            lambda x: x.unique().tolist()
+        ).to_dict()
+        self.node_arc_out = arc_df.groupby('from_node')['arc_id'].apply(
+            lambda x: x.unique().tolist()
+        ).to_dict()
+
+        model = scip.Model("BPR_TAP")
+        var = {}
+
+        # xop: path flow per OD
+        for od in self.od_path_dict:
+            for p in self.od_path_dict[od]:
+                var[('xop', od, p)] = model.addVar(lb=0, name=f"xop_{od}_{p}")
+
+        # ya, ya5, bpr per arc
+        for arc_id in self.arc_path_dict:
+            var[('ya', arc_id)] = model.addVar(lb=0, name=f"ya_{arc_id}")
+            var[('ya5', arc_id)] = model.addVar(lb=0, name=f"ya5_{arc_id}")
+            var[('bpr', arc_id)] = model.addVar(lb=0, name=f"bpr_{arc_id}")
+
+        # ---- 约束 ----
+        # C1: OD flow sum
+        for od in self.od_path_dict:
+            model.addCons(
+                scip.quicksum(var[('xop', od, p)] for p in self.od_path_dict[od])
+                == self.od_demand_dict[od]
+            )
+
+        # C2: arc flow = sum of path flows
+        for arc_id in self.arc_path_dict:
+            model.addCons(
+                var[('ya', arc_id)]
+                == scip.quicksum(
+                    var[('xop', od, p)]
+                    for od, p in self.arc_path_dict[arc_id]
+                )
+            )
+
+        # C3: BPR definition (ya^2)
+        for arc_id in self.arc_path_dict:
+            t0, c, alpha, beta = self.arc_info_dict[arc_id]
+            c = min(c, 300)
+            model.addCons(
+                var[('ya5', arc_id)]
+                == var[('ya', arc_id)] * var[('ya', arc_id)]
+            )
+            if t0 == 0:
+                model.addCons(var[('bpr', arc_id)] == 0)
             else:
+                model.addCons(
+                    var[('bpr', arc_id)]
+                    == t0 * (1 + alpha * var[('ya5', arc_id)] / np.power(c, 2))
+                )
+
+        # C4: EV charging ratio
+        total_demand = sum(
+            self.od_demand_dict[od] for od in self.od_ev_path_dict
+        )
+        model.addCons(
+            scip.quicksum(
+                scip.quicksum(
+                    var[('xop', od, p)]
+                    for p in self.od_ev_path_dict.get(od, [])
+                )
+                for od in self.od_demand_dict
+            ) == total_demand * self.dh.EV_RATIO
+        )
+
+        # C5: 电站等待时间
+        for ev_node in IESS_nodes + EVCS_nodes:
+            vir_n = 'vir_' + str(ev_node)
+            var[('ev_wt', vir_n)] = model.addVar(lb=0, name=f'ev_wt_{vir_n}')
+            var[('ev_in', vir_n)] = model.addVar(lb=0, name=f'ev_in_{vir_n}')
+            model.addCons(
+                var[('ev_in', vir_n)]
+                == scip.quicksum(
+                    var.get(('ya', a), 0) for a in self.node_arc_in[vir_n]
+                )
+            )
+            model.addCons(
+                var[('ev_wt', vir_n)]
+                >= self.dh.EV_WAIT_TIME * (
+                    var[('ev_in', vir_n)] - elc_vol[ev_node]
+                )
+            )
+
+        # ---- 目标函数 ----
+        model.hideOutput()
+        obj = scip.Expr()
+        for arc_id in self.arc_info_dict:
+            obj += var.get(('bpr', arc_id), 0) * 1.0
+        for ev_node in IESS_nodes + EVCS_nodes:
+            vir_n = 'vir_' + str(ev_node)
+            obj += var['ev_wt', vir_n] * 1.0
+            obj += var['ev_in', vir_n] * 1.0 * elc_price[ev_node] * self.dh.EV_ELE_VOL
+
+        model.setObjective(obj, 'minimize')
+        # model.writeProblem('D://model.lp')
+
+        self.model = model
+        self.var = var
+        print(f"  Vars: {model.getNVars()}, Constraints: {model.getNConss()}")
+
+    def solve(self):
+        self.model.optimize()
+        print(f"  Status: {self.model.getStatus()}")
+
+    def extract_results(self):
+        """提取模型解并保存"""
+        model = self.model
+        var = self.var
+
+        xop = {}
+        for od in self.od_path_dict:
+            for p in self.od_path_dict[od]:
+                xop[(od, p)] = model.getVal(var[('xop', od, p)])
+
+        ev_in = {}
+        for ev_node in self.dh.IESS_nodes + self.dh.EVCS_nodes:
+            vir_n = 'vir_' + str(ev_node)
+            ev_in[ev_node] = model.getVal(var[('ev_in', vir_n)])
+
+        ya = {}
+        bpr = {}
+        for arc_id in self.arc_path_dict:
+            ya[arc_id] = model.getVal(var[('ya', arc_id)])
+            bpr[arc_id] = model.getVal(var[('bpr', arc_id)])
+
+        res = {'xop': xop, 'ev': ev_in, 'ya': ya, 'bpr': bpr}
+        with open('traficNetWorkFlowRes.pkl', 'wb+') as f:
+            pickle.dump(res, f)
+        print("  Results saved: traficNetWorkFlowRes.pkl")
+        return res
+
+    # --------------------------------------------------------
+    # 后处理 (BPR 迭代收敛)
+    # --------------------------------------------------------
+    def post_handle(self, res, max_iter=50, converge_thresh=0.01, max_minute=24*60):
+        print("\n" + "=" * 70 + "\nBrfSolver: BPR 迭代后处理\n" + "=" * 70)
+
+        xop = res['xop']
+        path_df = self.algo_input['candicate_paths_df']
+        arc_df = self.algo_input['arc_df']
+        arc_info_dict = arc_df.set_index('arc_id')['infos'].to_dict()
+        od_path_dict = self.od_path_dict
+        arc_st = self.dh.arc_st
+        arc_ed = self.dh.arc_ed
+        IESS_nodes = self.dh.IESS_nodes
+
+        # ---- 构建 xop_data ----
+        xop_rows = []
+        eps = 1e-3
+        for od in od_path_dict:
+            for p in od_path_dict[od]:
+                val = xop.get((od, p), 0)
+                if val > eps:
+                    if 'ev' in str(p):
+                        rp =random.uniform(0,1)
+                        if rp < 0.45:
+                            xop_rows.append((od, p, val, random.choice(range(6*60, 8*60))))
+                        elif rp < 0.7:
+                            xop_rows.append((od, p, val, random.choice(range(0, 23*60))))
+                        else:
+                            xop_rows.append((od, p, val, random.choice(range(18*60, 20*60))))
+                    else:
+                        xop_rows.append((od, p, val, 0))
+                        # rp =random.uniform(0,1)
+                        # if rp < 0.45:
+                        #     xop_rows.append((od, p, val, random.choice(range(6*60, 10*60))))
+                        # else:
+                        #     xop_rows.append((od, p, val, random.choice(range(18*60, 20*60))))
+        xop_df = pd.DataFrame(
+            xop_rows,
+            columns=['od_id', 'path_id', 'qty', 'startTime']
+        )
+        xop_df = pd.merge(
+            xop_df,
+            path_df[['od_id', 'path_id', 'arc_path']],
+            how='left', on=['od_id', 'path_id']
+        )
+
+        # ---- 路段信息 ----
+        arc_info = {
+            aid: {"t0": t0, "c": c, "a": a, "b": b}
+            for aid, (t0, c, a, b) in arc_info_dict.items()
+        }
+        arcs = list(arc_info.keys())
+        od_data = xop_df[
+            ['od_id', 'path_id', 'arc_path', 'qty', 'startTime']
+        ].values.tolist()
+
+        # 初始化: 自由流时间 / 10
+        prev_tt = defaultdict(lambda: defaultdict(float))
+        for a in arcs:
+            for t in range(max_minute):
+                prev_tt[a][t] = arc_info[a]["t0"] / 10.0
+
+        # ---- BPR 迭代 ----
+        for it in range(max_iter):
+            arc_flow = defaultdict(lambda: defaultdict(float))
+
+            for _, _, path, qty, st in od_data:
+                current_time = float(st)
+                for arc in path:
+                    enter_t = round(current_time)
+                    if 0 <= enter_t < max_minute:
+                        arc_flow[arc][enter_t] += qty
+                    else:
+                        print('超出一天，', enter_t, ' min')
+                    tt = prev_tt[arc][enter_t]
+                    current_time += tt
+
+            new_tt = defaultdict(lambda: defaultdict(float))
+            max_diff = 0.0
+
+            for a in arcs:
+                t0 = arc_info[a]["t0"]
+                c = arc_info[a]["c"]
+                alpha = arc_info[a]["a"]
+                beta = arc_info[a]["b"]
+
+                for t in range(max_minute):
+                    f = arc_flow[a].get(t, 0.0)
+                    if c <= 0:
+                        tt = t0
+                    elif 'vir' not in str(a):
+                        ratio = f / c
+                        tt = t0 * (1 + alpha * (ratio ** beta))
+                    else:
+                        if t0 == 0:
+                            tt = 0
+                        else:
+                            ev_node = int(arc_ed[a][4:])
+                            tt = self.dh.EV_WAIT_TIME * max(
+                                f - self.dh.elc_vol[ev_node], 0
+                            )
+                    new_tt[a][t] = tt
+                    max_diff = max(max_diff, abs(tt - prev_tt[a][t]))
+
+            prev_tt = new_tt
+
+            if max_diff < converge_thresh:
+                print(f"  Converged at iteration {it + 1}")
+                break
+
+        # ---- 输出 arc_res ----
+        rows = []
+        for a in arcs:
+            for t in range(max_minute):
+                rows.append({
+                    'arc': a,
+                    'time': t,
+                    'run_time': round(prev_tt[a][t], 3),
+                    't0_h': arc_info_dict[a][0],
+                    'c': arc_info_dict[a][1],
+                    'alpha': arc_info_dict[a][2],
+                    'beta': arc_info_dict[a][-1],
+                })
+        arc_res = pd.DataFrame(rows)
+        arc_res = arc_res.sort_values(['arc', 'time']).reset_index(drop=True)
+        arc_res['from_node'] = arc_res['arc'].map(arc_st)
+        arc_res['to_node'] = arc_res['arc'].map(arc_ed)
+
+        def judge_type(x):
+            if 'vir' in str(x['arc']):
+                if int(str(x['arc']).split('_')[-1]) in IESS_nodes:
+                    return 'IESS'
                 return 'EVCS'
-        else:
             return 'Path'
-    df['arc_type'] = df.apply(lambda x: judge_type(x), axis=1)
-    # 提取充电节点
-    elc_df = df[df['arc_type'] != 'Path']
-    df = df[df['arc_type'] == 'Path']
-    elc_df = elc_df[elc_df['run_time'] > 0]
-    elc_df['elc_node'] = elc_df['arc'].apply(lambda x: x.split('_')[-1])
-    elc_node_time_wt_dict = elc_df.groupby('elc_node').apply(lambda x: x.groupby('time').apply(lambda y: y['run_time'].sum()).to_dict()).to_dict()
-    elc_node_type_dict = elc_df.set_index('elc_node').to_dict()['arc_type']
-    elc_list = []
-    new_wt_dict = defaultdict(lambda: defaultdict(float))
-    for elc_node in elc_node_time_wt_dict:
-        times = sorted(list(elc_node_time_wt_dict[elc_node].keys()))
-        pre_t = 0
-        for i, t in enumerate(times):
-            if i == 0:
-                new_wt_dict[elc_node][t] = elc_node_time_wt_dict[elc_node][t]
-            else:
-                rt = t - pre_t
-                new_wt_dict[elc_node][t] = max(new_wt_dict[elc_node][pre_t] - rt, 0) + elc_node_time_wt_dict[elc_node][t]
-            pre_t = t
-    for elc_node in new_wt_dict:
-        for t in new_wt_dict[elc_node]:
-            run_time = new_wt_dict[elc_node][t]
-            run_qty = run_time / EV_WIAT_TIME + elc_vol_dict[int(elc_node)]
-            elc_list.append((elc_node, t,elc_node_type_dict[elc_node], elc_vol_dict[int(elc_node)], run_qty, run_time, EV_ELE_VOL * run_qty))
-    elc_df = pd.DataFrame(elc_list, columns=['elc_node','time','type','capacity','flow_qty','wait_time','swap_qty'])
-    over_day_df = pd.DataFrame(over_day_rows)
 
-    if not over_day_df.empty:
-        over_day_df = over_day_df.drop_duplicates()
-        over_day_df = over_day_df.sort_values(
-            ["iteration", "enter_time_min", "od_id", "path_id", "arc_order"]
-        ).reset_index(drop=True)
+        arc_res['arc_type'] = arc_res.apply(judge_type, axis=1)
 
-    output_dict = {
-        'od_res': xop_df,
-        'arc_res': df,
-        'elc_res': elc_df,
-        'over_day_res': over_day_df
-    }
+        # ---- 充/换电站处理 ----
+        elc_df = arc_res[arc_res['arc_type'] != 'Path'].copy()
+        path_res = arc_res[arc_res['arc_type'] == 'Path'].copy()
+        elc_df = elc_df[elc_df['run_time'] > 0].copy()
+        elc_df['elc_node'] = elc_df['arc'].apply(
+            lambda x: str(x).split('_')[-1]
+        )
 
-    print("postHandel Over")
+        elc_node_wt = elc_df.groupby('elc_node').apply(
+            lambda x: x.groupby('time')['run_time'].sum().to_dict()
+        ).to_dict()
+        elc_node_type = elc_df.set_index('elc_node')['arc_type'].to_dict()
 
-    return output_dict
+        new_wt = defaultdict(lambda: defaultdict(float))
+        for elc_node in elc_node_wt:
+            times = sorted(elc_node_wt[elc_node].keys())
+            pre_t = 0
+            for i, t in enumerate(times):
+                if i == 0:
+                    new_wt[elc_node][t] = elc_node_wt[elc_node][t]
+                else:
+                    rt = t - pre_t
+                    new_wt[elc_node][t] = (
+                        max(new_wt[elc_node][pre_t] - rt, 0)
+                        + elc_node_wt[elc_node][t]
+                    )
+                pre_t = t
 
-if __name__ == "__main__":
-    build_Model(algo_input_dict)
-    res_pkl = 'traficNetWorkFlowRes.pkl'
-    output_dict = postHandel(algo_input_dict,res_pkl)
-    
-    with pd.ExcelWriter(f'algo_bpr_res.xlsx') as writer:
-        for k in output_dict.keys():
-            output_dict[k].to_excel(writer, sheet_name=k, index=False)
+        elc_rows = []
+        for elc_node in new_wt:
+            for t in new_wt[elc_node]:
+                rt_val = new_wt[elc_node][t]
+                qty = rt_val / self.dh.EV_WAIT_TIME + self.dh.elc_vol[int(elc_node)]
+                elc_rows.append((
+                    elc_node, t,
+                    elc_node_type[elc_node],
+                    self.dh.elc_vol[int(elc_node)],
+                    qty, rt_val,
+                    self.dh.EV_ELE_VOL * rt_val,
+                ))
+        elc_res = pd.DataFrame(
+            elc_rows,
+            columns=[
+                'elc_node', 'time', 'type', 'capacity',
+                'flow_qty', 'wait_time', 'swap_qty'
+            ]
+        )
+
+        self.output = {
+            'od_res': xop_df,
+            'arc_res': path_res,
+            'elc_res': elc_res,
+        }
+        print(f"  arc_res: {len(path_res)} rows, elc_res: {len(elc_res)} rows")
+        return self.output
+
+    def export_excel(self, path='algo_bpr_res.xlsx'):
+        if not hasattr(self, 'output'):
+            print("  WARNING: Run post_handle() first")
+            return
+        with pd.ExcelWriter(path) as writer:
+            for k, df in self.output.items():
+                df.to_excel(writer, sheet_name=k, index=False)
+        print(f"  Exported: {path}")
+
+
+if __name__ == '__main__':
+    dh = BrfDataHandler()
+    solver = BrfSolver(dh)
+    solver.solve()
+    res = solver.extract_results()
+    solver.post_handle(res)
+    solver.export_excel('algo_bpr_res.xlsx')
+    print("\nDONE!")
