@@ -128,7 +128,8 @@ class GridModel:
         for t in self.T:
             for idx in range(self.SIZE):
                 b = self.nodes[idx//self.N_PH]
-                vv[('v',t,idx)] = m.addVar(vtype = 'C',lb = self.vmin.get(b,0.9),ub = self.vmax.get(b,1.1))
+                # vv[('v',t,idx)] = m.addVar(vtype = 'C',lb = self.vmin.get(b,0.9),ub = self.vmax.get(b,1.1))
+                vv[('v',t,idx)] = m.addVar(vtype = 'C', lb = self.vmin.get(b,0.9) ** 2, ub = self.vmax.get(b,1.1) ** 2,)
                 vv[('p',t,idx)] = m.addVar(vtype = 'C',lb = -np.inf)
                 vv[('q',t,idx)] = m.addVar(vtype = 'C',lb = -np.inf)
 

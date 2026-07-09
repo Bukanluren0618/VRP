@@ -4,6 +4,7 @@ import random
 import warnings
 import os
 from collections import defaultdict
+from brf_gurobi1 import BrfDataHandler, BrfSolver
 from grid_model import GridModel
 warnings.filterwarnings('ignore')
 random.seed(42)
@@ -91,7 +92,7 @@ class GlobalScheduler:
             else:
                 # ---- (default) ----
                 # from path_schedule_scip import DataHandler, VRPSolver, PostHandler
-                from brf_gurobi1 import BrfDataHandler, BrfSolver
+                # from brf_gurobi1 import BrfDataHandler, BrfSolver
                 dh_vrp = DataHandler(num_customers=self.num_cust, depot_node=self.depot_node,
                                      iess_node=self.IESS_NODES, iess_price=iess_prices,
                                      iess_cap=iess_caps)
