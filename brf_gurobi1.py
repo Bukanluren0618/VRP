@@ -21,7 +21,7 @@ random.seed(10)
 class BrfDataHandler:
     def __init__(self, pickle_path='./raw_data_bpr.pkl',
                  evcs_num=10, iess_num=5, ev_ratio=0.3,
-                 ev_ele_vol=50, ev_wait_time=0.1,
+                 ev_ele_vol=50, ev_wait_time=0.1, ev_wait_penalty=1.0,
                  iess_nodes=None, evcs_nodes=None,
                  ele_price=None, elc_vol=None):
         print("=" * 70 + "\nBrfDataHandler: 加载数据\n" + "=" * 70)
