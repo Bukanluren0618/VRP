@@ -47,6 +47,7 @@ class BrfDataHandler:
         self.EV_RATIO = ev_ratio
         self.EV_ELE_VOL = ev_ele_vol
         self.EV_WAIT_TIME = ev_wait_time
+        self.EV_WAIT_PENALTY = ev_wait_penalty
 
         all_nodes = self.node_df['node_id'].unique().tolist()
 
@@ -328,7 +329,7 @@ class BrfSolver:
             obj += var.get(('bpr', arc_id), 0) * 1.0
         for ev_node in IESS_nodes + EVCS_nodes:
             vir_n = 'vir_' + str(ev_node)
-            obj += var['ev_wt', vir_n] * 1.0
+            obj += var['ev_wt', vir_n] * self.dh.EV_WAIT_PENALTY
             obj += var['ev_in', vir_n] * 1.0 * elc_price[ev_node] * self.dh.EV_ELE_VOL
 
         model.setObjective(obj, 'minimize')

@@ -23,32 +23,85 @@ class GlobalScheduler:
         gm = GridModel(grid_xlsx=grid_xlsx)
         self.grid_nodes = gm.nodes
 
-        all_nodes = list(range(80))
-        self.IESS_NODES = random.sample(all_nodes, 5)
-        remaining = list(set(all_nodes)-set(self.IESS_NODES))
-        self.EVCS_NODES = random.sample(remaining, 10)
+        # all_nodes = list(range(80))
+        # self.IESS_NODES = random.sample(all_nodes, 5)
+        # remaining = list(set(all_nodes)-set(self.IESS_NODES))
+        # self.EVCS_NODES = random.sample(remaining, 10)
 
-        self.iess_to_bus = {}
-        iess_bus = random.sample(self.grid_nodes, len(self.IESS_NODES))
-        for i, iess in enumerate(self.IESS_NODES):
-            self.iess_to_bus[iess] = iess_bus[i]
-        self.evcs_to_bus = {}
-        remaining = list(set(self.grid_nodes)-set(iess_bus))
-        evcs_bus =random.sample(remaining, len(self.EVCS_NODES))
-        for i, evcs in enumerate(self.EVCS_NODES):
-            self.evcs_to_bus[evcs] = evcs_bus[i]
+        # self.iess_to_bus = {}
+        # iess_bus = random.sample(self.grid_nodes, len(self.IESS_NODES))
+        # for i, iess in enumerate(self.IESS_NODES):
+        #     self.iess_to_bus[iess] = iess_bus[i]
+        # self.evcs_to_bus = {}
+        # remaining = list(set(self.grid_nodes)-set(iess_bus))
+        # evcs_bus =random.sample(remaining, len(self.EVCS_NODES))
+        # for i, evcs in enumerate(self.EVCS_NODES):
+        #     self.evcs_to_bus[evcs] = evcs_bus[i]
+
+        self.IESS_NODES = [4, 3, 10, 9, 18]
+        self.EVCS_NODES = [42, 36, 71, 23, 62, 73, 20, 11, 46, 28]
+
+        # 35 kV grid-bus mapping from the same preview table.
+        self.iess_to_bus = {
+            4: 0,
+            3: 1,
+            10: 2,
+            9: 3,
+            18: 4,
+        }
+        self.evcs_to_bus = {
+            42: 5,
+            36: 6,
+            71: 7,
+            23: 8,
+            62: 9,
+            73: 10,
+            20: 11,
+            11: 12,
+            46: 13,
+            28: 14,
+        }
+
             
         self.bus_to_station = {v:k for k, v in self.iess_to_bus.items()}
         self.bus_to_station.update({v:k for k, v in self.evcs_to_bus.items()})
+        
+        # self.iess_cap = {iess: 2 for iess in self.IESS_NODES}
+        # self.evcs_cap = {evcs: 10 for evcs in self.EVCS_NODES}
 
-        self.iess_cap = {iess: np.ceil(random.random()*10) for iess in self.IESS_NODES}
-        self.evcs_cap = {evcs: np.ceil(random.random()*10) for evcs in self.EVCS_NODES}
-        self.ele_prices = {**{iess: round(random.random()*100,2) for iess in self.IESS_NODES},
-                           **{evcs: round(random.random()*100,2) for evcs in self.EVCS_NODES}}
+        # # Fixed IESS battery inventory for swap scheduling/inspection.
+        # self.iess_battery_inventory = {iess: 6 for iess in self.IESS_NODES}
+
+        # self.ele_prices = {**{iess: round(random.random()*100,2) for iess in self.IESS_NODES},
+        #                    **{evcs: round(random.random()*100,2) for evcs in self.EVCS_NODES}}
+
+                # Fixed service capacities: IESS can serve 2 EVs; EVCS can serve 10 EVs.
+        self.iess_cap = {iess: 2 for iess in self.IESS_NODES}
+        self.evcs_cap = {evcs: 10 for evcs in self.EVCS_NODES}
+
+        # Fixed IESS battery inventory for swap scheduling/inspection.
+        self.iess_battery_inventory = {iess: 6 for iess in self.IESS_NODES}
+
+        # Fixed normalized electricity prices (0-1 scale).
+        # All IESS share one price; all EVCS share one price.
+        self.iess_price = 0.60
+        self.evcs_price = 0.40
+        self.wait_penalty = 5.0
+        self.slack_price_step = 0.10
+        self.ele_prices = {**{iess: self.iess_price for iess in self.IESS_NODES},
+                           **{evcs: self.evcs_price for evcs in self.EVCS_NODES}}
 
         print(f"  IESS: {self.IESS_NODES}")
         print(f"  EVCS: {self.EVCS_NODES}")
+        print(f"  IESS->bus: {self.iess_to_bus}")
+        print(f"  EVCS->bus: {self.evcs_to_bus}")
         print(f"  Prices: {dict(list(self.ele_prices.items()))}")
+
+        print(f"  IESS->bus: {self.iess_to_bus}")
+        print(f"  EVCS->bus: {self.evcs_to_bus}")
+        print(f"  IESS cap: {self.iess_cap}")
+        print(f"  EVCS cap: {self.evcs_cap}")
+        print(f"  IESS battery inventory: {self.iess_battery_inventory}")
 
     def run(self):
         for it in range(self.max_iter):
@@ -62,7 +115,8 @@ class GlobalScheduler:
             dh_brf = BrfDataHandler(iess_nodes=self.IESS_NODES, 
                                     evcs_nodes=self.EVCS_NODES,
                                     ele_price=self.ele_prices,
-                                    elc_vol={**self.iess_cap,**self.evcs_cap})
+                                    elc_vol={**self.iess_cap,**self.evcs_cap},
+                                    ev_wait_penalty=self.wait_penalty)
 
             solver_brf = BrfSolver(dh_brf)
             solver_brf.solve()
@@ -190,8 +244,8 @@ class GlobalScheduler:
                 node_id = self.bus_to_station[k] #转换回路网
                 node_max_price[node_id] = max(node_max_price.get(node_id,0), v)
             for node_id,v in node_max_price.items():
-                price_old = self.ele_prices.get(node_id, 1.0)
-                price_new = max(1.0, price_old + v * 10)  # slack  × factor
+                price_old = self.ele_prices.get(node_id, 0.0)
+                price_new = min(1.0, max(0.0, price_old + v * self.slack_price_step))
                 self.ele_prices[node_id] = round(price_new, 2)
                 updated += 1
                 print(f"    Node {node_id} slack={v:.4f} price: {price_old}→{price_new:.2f}")

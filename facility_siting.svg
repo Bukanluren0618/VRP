@@ -1,0 +1,182 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="760" viewBox="0 0 1000 760">
+<rect width="100%" height="100%" fill="white"/>
+<text x="50" y="30" font-size="22" font-family="Arial">IESS / EVCS facility siting</text>
+<circle cx="621.56" cy="626.17" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="625.56" y="630.17" font-size="9" font-family="Arial" fill="#555555">0</text>
+<circle cx="286.68" cy="364.63" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="290.68" y="368.63" font-size="9" font-family="Arial" fill="#555555">1</text>
+<circle cx="704.50" cy="624.55" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="708.50" y="628.55" font-size="9" font-family="Arial" fill="#555555">2</text>
+<circle cx="432.08" cy="486.84" r="10" fill="#d62728" stroke="black" stroke-width="0.5"/>
+<text x="436.08" y="490.84" font-size="9" font-family="Arial" fill="#555555">3</text>
+<text x="440.08" y="478.84" font-size="12" font-family="Arial">IESS 3 / bus 1</text>
+<circle cx="494.45" cy="378.56" r="10" fill="#d62728" stroke="black" stroke-width="0.5"/>
+<text x="498.45" y="382.56" font-size="9" font-family="Arial" fill="#555555">4</text>
+<text x="502.45" y="370.56" font-size="12" font-family="Arial">IESS 4 / bus 0</text>
+<circle cx="694.06" cy="457.64" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="698.06" y="461.64" font-size="9" font-family="Arial" fill="#555555">5</text>
+<circle cx="498.60" cy="696.77" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="502.60" y="700.77" font-size="9" font-family="Arial" fill="#555555">6</text>
+<circle cx="618.75" cy="471.32" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="622.75" y="475.32" font-size="9" font-family="Arial" fill="#555555">7</text>
+<circle cx="538.66" cy="380.68" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="542.66" y="384.68" font-size="9" font-family="Arial" fill="#555555">8</text>
+<circle cx="318.06" cy="367.26" r="10" fill="#d62728" stroke="black" stroke-width="0.5"/>
+<text x="322.06" y="371.26" font-size="9" font-family="Arial" fill="#555555">9</text>
+<text x="326.06" y="359.26" font-size="12" font-family="Arial">IESS 9 / bus 3</text>
+<circle cx="473.10" cy="261.14" r="10" fill="#d62728" stroke="black" stroke-width="0.5"/>
+<text x="477.10" y="265.14" font-size="9" font-family="Arial" fill="#555555">10</text>
+<text x="481.10" y="253.14" font-size="12" font-family="Arial">IESS 10 / bus 2</text>
+<circle cx="821.55" cy="380.31" r="8" fill="#1f77b4" stroke="black" stroke-width="0.5"/>
+<text x="825.55" y="384.31" font-size="9" font-family="Arial" fill="#555555">11</text>
+<text x="829.55" y="372.31" font-size="12" font-family="Arial">EVCS 11 / bus 12</text>
+<circle cx="368.31" cy="562.59" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="372.31" y="566.59" font-size="9" font-family="Arial" fill="#555555">12</text>
+<circle cx="574.58" cy="531.12" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="578.58" y="535.12" font-size="9" font-family="Arial" fill="#555555">13</text>
+<circle cx="382.00" cy="326.49" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="386.00" y="330.49" font-size="9" font-family="Arial" fill="#555555">14</text>
+<circle cx="538.96" cy="87.94" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="542.96" y="91.94" font-size="9" font-family="Arial" fill="#555555">15</text>
+<circle cx="263.56" cy="469.08" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="267.56" y="473.08" font-size="9" font-family="Arial" fill="#555555">16</text>
+<circle cx="503.76" cy="375.29" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="507.76" y="379.29" font-size="9" font-family="Arial" fill="#555555">17</text>
+<circle cx="563.51" cy="401.03" r="10" fill="#d62728" stroke="black" stroke-width="0.5"/>
+<text x="567.51" y="405.03" font-size="9" font-family="Arial" fill="#555555">18</text>
+<text x="571.51" y="393.03" font-size="12" font-family="Arial">IESS 18 / bus 4</text>
+<circle cx="293.56" cy="607.60" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="297.56" y="611.60" font-size="9" font-family="Arial" fill="#555555">19</text>
+<circle cx="548.91" cy="710.00" r="8" fill="#1f77b4" stroke="black" stroke-width="0.5"/>
+<text x="552.91" y="714.00" font-size="9" font-family="Arial" fill="#555555">20</text>
+<text x="556.91" y="702.00" font-size="12" font-family="Arial">EVCS 20 / bus 11</text>
+<circle cx="298.13" cy="189.00" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="302.13" y="193.00" font-size="9" font-family="Arial" fill="#555555">21</text>
+<circle cx="684.58" cy="456.21" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="688.58" y="460.21" font-size="9" font-family="Arial" fill="#555555">22</text>
+<circle cx="950.00" cy="597.67" r="8" fill="#1f77b4" stroke="black" stroke-width="0.5"/>
+<text x="954.00" y="601.67" font-size="9" font-family="Arial" fill="#555555">23</text>
+<text x="958.00" y="589.67" font-size="12" font-family="Arial">EVCS 23 / bus 8</text>
+<circle cx="597.89" cy="663.29" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="601.89" y="667.29" font-size="9" font-family="Arial" fill="#555555">24</text>
+<circle cx="617.42" cy="132.66" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="621.42" y="136.66" font-size="9" font-family="Arial" fill="#555555">25</text>
+<circle cx="343.35" cy="368.37" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="347.35" y="372.37" font-size="9" font-family="Arial" fill="#555555">26</text>
+<circle cx="692.16" cy="333.56" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="696.16" y="337.56" font-size="9" font-family="Arial" fill="#555555">27</text>
+<circle cx="638.09" cy="304.68" r="8" fill="#1f77b4" stroke="black" stroke-width="0.5"/>
+<text x="642.09" y="308.68" font-size="9" font-family="Arial" fill="#555555">28</text>
+<text x="646.09" y="296.68" font-size="12" font-family="Arial">EVCS 28 / bus 14</text>
+<circle cx="350.71" cy="660.79" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="354.71" y="664.79" font-size="9" font-family="Arial" fill="#555555">29</text>
+<circle cx="443.61" cy="542.97" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="447.61" y="546.97" font-size="9" font-family="Arial" fill="#555555">30</text>
+<circle cx="563.08" cy="398.13" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="567.08" y="402.13" font-size="9" font-family="Arial" fill="#555555">31</text>
+<circle cx="528.27" cy="272.11" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="532.27" y="276.11" font-size="9" font-family="Arial" fill="#555555">32</text>
+<circle cx="407.14" cy="255.26" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="411.14" y="259.26" font-size="9" font-family="Arial" fill="#555555">33</text>
+<circle cx="401.71" cy="355.35" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="405.71" y="359.35" font-size="9" font-family="Arial" fill="#555555">34</text>
+<circle cx="651.41" cy="109.59" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="655.41" y="113.59" font-size="9" font-family="Arial" fill="#555555">35</text>
+<circle cx="853.85" cy="105.18" r="8" fill="#1f77b4" stroke="black" stroke-width="0.5"/>
+<text x="857.85" y="109.18" font-size="9" font-family="Arial" fill="#555555">36</text>
+<text x="861.85" y="97.18" font-size="12" font-family="Arial">EVCS 36 / bus 6</text>
+<circle cx="104.11" cy="282.15" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="108.11" y="286.15" font-size="9" font-family="Arial" fill="#555555">37</text>
+<circle cx="503.05" cy="202.66" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="507.05" y="206.66" font-size="9" font-family="Arial" fill="#555555">38</text>
+<circle cx="399.13" cy="612.44" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="403.13" y="616.44" font-size="9" font-family="Arial" fill="#555555">39</text>
+<circle cx="219.82" cy="343.02" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="223.82" y="347.02" font-size="9" font-family="Arial" fill="#555555">40</text>
+<circle cx="680.78" cy="540.63" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="684.78" y="544.63" font-size="9" font-family="Arial" fill="#555555">41</text>
+<circle cx="491.37" cy="411.82" r="8" fill="#1f77b4" stroke="black" stroke-width="0.5"/>
+<text x="495.37" y="415.82" font-size="9" font-family="Arial" fill="#555555">42</text>
+<text x="499.37" y="403.82" font-size="12" font-family="Arial">EVCS 42 / bus 5</text>
+<circle cx="450.58" cy="214.81" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="454.58" y="218.81" font-size="9" font-family="Arial" fill="#555555">43</text>
+<circle cx="610.13" cy="470.24" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="614.13" y="474.24" font-size="9" font-family="Arial" fill="#555555">44</text>
+<circle cx="610.71" cy="522.05" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="614.71" y="526.05" font-size="9" font-family="Arial" fill="#555555">45</text>
+<circle cx="412.71" cy="278.79" r="8" fill="#1f77b4" stroke="black" stroke-width="0.5"/>
+<text x="416.71" y="282.79" font-size="9" font-family="Arial" fill="#555555">46</text>
+<text x="420.71" y="270.79" font-size="12" font-family="Arial">EVCS 46 / bus 13</text>
+<circle cx="384.96" cy="361.97" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="388.96" y="365.97" font-size="9" font-family="Arial" fill="#555555">47</text>
+<circle cx="487.08" cy="445.86" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="491.08" y="449.86" font-size="9" font-family="Arial" fill="#555555">48</text>
+<circle cx="664.80" cy="205.77" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="668.80" y="209.77" font-size="9" font-family="Arial" fill="#555555">49</text>
+<circle cx="484.52" cy="308.56" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="488.52" y="312.56" font-size="9" font-family="Arial" fill="#555555">50</text>
+<circle cx="913.25" cy="379.15" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="917.25" y="383.15" font-size="9" font-family="Arial" fill="#555555">51</text>
+<circle cx="568.57" cy="595.01" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="572.57" y="599.01" font-size="9" font-family="Arial" fill="#555555">52</text>
+<circle cx="469.58" cy="511.17" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="473.58" y="515.17" font-size="9" font-family="Arial" fill="#555555">53</text>
+<circle cx="361.87" cy="585.30" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="365.87" y="589.30" font-size="9" font-family="Arial" fill="#555555">54</text>
+<circle cx="523.37" cy="338.59" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="527.37" y="342.59" font-size="9" font-family="Arial" fill="#555555">55</text>
+<circle cx="50.00" cy="398.74" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="54.00" y="402.74" font-size="9" font-family="Arial" fill="#555555">56</text>
+<circle cx="268.82" cy="468.26" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="272.82" y="472.26" font-size="9" font-family="Arial" fill="#555555">57</text>
+<circle cx="818.02" cy="163.19" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="822.02" y="167.19" font-size="9" font-family="Arial" fill="#555555">58</text>
+<circle cx="590.09" cy="344.03" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="594.09" y="348.03" font-size="9" font-family="Arial" fill="#555555">59</text>
+<circle cx="464.67" cy="557.55" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="468.67" y="561.55" font-size="9" font-family="Arial" fill="#555555">60</text>
+<circle cx="255.30" cy="417.38" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="259.30" y="421.38" font-size="9" font-family="Arial" fill="#555555">61</text>
+<circle cx="68.93" cy="497.96" r="8" fill="#1f77b4" stroke="black" stroke-width="0.5"/>
+<text x="72.93" y="501.96" font-size="9" font-family="Arial" fill="#555555">62</text>
+<text x="76.93" y="489.96" font-size="12" font-family="Arial">EVCS 62 / bus 9</text>
+<circle cx="533.62" cy="525.59" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="537.62" y="529.59" font-size="9" font-family="Arial" fill="#555555">63</text>
+<circle cx="364.97" cy="577.04" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="368.97" y="581.04" font-size="9" font-family="Arial" fill="#555555">64</text>
+<circle cx="382.13" cy="385.38" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="386.13" y="389.38" font-size="9" font-family="Arial" fill="#555555">65</text>
+<circle cx="286.55" cy="443.62" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="290.55" y="447.62" font-size="9" font-family="Arial" fill="#555555">66</text>
+<circle cx="432.52" cy="200.82" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="436.52" y="204.82" font-size="9" font-family="Arial" fill="#555555">67</text>
+<circle cx="761.27" cy="391.01" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="765.27" y="395.01" font-size="9" font-family="Arial" fill="#555555">68</text>
+<circle cx="637.91" cy="390.46" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="641.91" y="394.46" font-size="9" font-family="Arial" fill="#555555">69</text>
+<circle cx="708.79" cy="50.00" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="712.79" y="54.00" font-size="9" font-family="Arial" fill="#555555">70</text>
+<circle cx="109.57" cy="191.48" r="8" fill="#1f77b4" stroke="black" stroke-width="0.5"/>
+<text x="113.57" y="195.48" font-size="9" font-family="Arial" fill="#555555">71</text>
+<text x="117.57" y="183.48" font-size="12" font-family="Arial">EVCS 71 / bus 7</text>
+<circle cx="556.41" cy="365.98" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="560.41" y="369.98" font-size="9" font-family="Arial" fill="#555555">72</text>
+<circle cx="467.51" cy="131.94" r="8" fill="#1f77b4" stroke="black" stroke-width="0.5"/>
+<text x="471.51" y="135.94" font-size="9" font-family="Arial" fill="#555555">73</text>
+<text x="475.51" y="123.94" font-size="12" font-family="Arial">EVCS 73 / bus 10</text>
+<circle cx="552.98" cy="346.95" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="556.98" y="350.95" font-size="9" font-family="Arial" fill="#555555">74</text>
+<circle cx="468.97" cy="76.77" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="472.97" y="80.77" font-size="9" font-family="Arial" fill="#555555">75</text>
+<circle cx="539.91" cy="254.08" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="543.91" y="258.08" font-size="9" font-family="Arial" fill="#555555">76</text>
+<circle cx="303.73" cy="553.19" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="307.73" y="557.19" font-size="9" font-family="Arial" fill="#555555">77</text>
+<circle cx="144.28" cy="484.94" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="148.28" y="488.94" font-size="9" font-family="Arial" fill="#555555">78</text>
+<circle cx="481.57" cy="645.51" r="3" fill="#c7c7c7" stroke="black" stroke-width="0.5"/>
+<text x="485.57" y="649.51" font-size="9" font-family="Arial" fill="#555555">79</text>
+<text x="50" y="720" font-size="14" font-family="Arial" fill="#d62728">● IESS</text>
+<text x="150" y="720" font-size="14" font-family="Arial" fill="#1f77b4">● EVCS</text>
+<text x="250" y="720" font-size="14" font-family="Arial" fill="#444444">● Depot</text>
+</svg>
