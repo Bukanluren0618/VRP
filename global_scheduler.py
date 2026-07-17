@@ -65,6 +65,9 @@ class GlobalScheduler:
             
         self.bus_to_station = {v:k for k, v in self.iess_to_bus.items()}
         self.bus_to_station.update({v:k for k, v in self.evcs_to_bus.items()})
+
+                # Fixed service capacities: IESS can serve 2 EVs; EVCS can serve 10 EVs.
+
         
         # self.iess_cap = {iess: 2 for iess in self.IESS_NODES}
         # self.evcs_cap = {evcs: 10 for evcs in self.EVCS_NODES}
@@ -82,11 +85,18 @@ class GlobalScheduler:
         # Fixed IESS battery inventory for swap scheduling/inspection.
         self.iess_battery_inventory = {iess: 6 for iess in self.IESS_NODES}
 
+
+
         # Fixed normalized electricity prices (0-1 scale).
         # All IESS share one price; all EVCS share one price.
         self.iess_price = 0.60
         self.evcs_price = 0.40
+        self.electricity_cost_weight = 1.0
+        self.slack_price_step = 0.10
+        self.bpr_cost_weight = 1.0
         self.wait_penalty = 5.0
+
+        self.electricity_cost_weight = 1.0
         self.slack_price_step = 0.10
         self.ele_prices = {**{iess: self.iess_price for iess in self.IESS_NODES},
                            **{evcs: self.evcs_price for evcs in self.EVCS_NODES}}
@@ -95,13 +105,14 @@ class GlobalScheduler:
         print(f"  EVCS: {self.EVCS_NODES}")
         print(f"  IESS->bus: {self.iess_to_bus}")
         print(f"  EVCS->bus: {self.evcs_to_bus}")
-        print(f"  Prices: {dict(list(self.ele_prices.items()))}")
-
-        print(f"  IESS->bus: {self.iess_to_bus}")
-        print(f"  EVCS->bus: {self.evcs_to_bus}")
         print(f"  IESS cap: {self.iess_cap}")
         print(f"  EVCS cap: {self.evcs_cap}")
         print(f"  IESS battery inventory: {self.iess_battery_inventory}")
+        print(f"  IESS price: {self.iess_price}")
+        print(f"  EVCS price: {self.evcs_price}")
+        print(f"  BPR cost weight: {self.bpr_cost_weight}")
+        print(f"  Wait penalty: {self.wait_penalty}")
+        print(f"  Electricity cost weight: {self.electricity_cost_weight}")
 
     def run(self):
         for it in range(self.max_iter):
@@ -116,7 +127,9 @@ class GlobalScheduler:
                                     evcs_nodes=self.EVCS_NODES,
                                     ele_price=self.ele_prices,
                                     elc_vol={**self.iess_cap,**self.evcs_cap},
-                                    ev_wait_penalty=self.wait_penalty)
+                                    ev_wait_penalty=self.wait_penalty,
+                                    bpr_cost_weight=self.bpr_cost_weight,
+                                    electricity_cost_weight=self.electricity_cost_weight)
 
             solver_brf = BrfSolver(dh_brf)
             solver_brf.solve()

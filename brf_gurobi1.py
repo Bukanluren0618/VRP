@@ -20,8 +20,9 @@ random.seed(10)
 # ============================================================
 class BrfDataHandler:
     def __init__(self, pickle_path='./raw_data_bpr.pkl',
-                 evcs_num=10, iess_num=5, ev_ratio=0.3,
-                 ev_ele_vol=50, ev_wait_time=0.1, ev_wait_penalty=1.0,
+                 evcs_num=10, iess_num=5, ev_ratio=0.6,
+                ev_ele_vol=50, ev_wait_time=0.1, ev_wait_penalty=1.0,
+                 bpr_cost_weight=1.0, electricity_cost_weight=1.0,
                  iess_nodes=None, evcs_nodes=None,
                  ele_price=None, elc_vol=None):
         print("=" * 70 + "\nBrfDataHandler: 加载数据\n" + "=" * 70)
@@ -48,6 +49,8 @@ class BrfDataHandler:
         self.EV_ELE_VOL = ev_ele_vol
         self.EV_WAIT_TIME = ev_wait_time
         self.EV_WAIT_PENALTY = ev_wait_penalty
+        self.BPR_COST_WEIGHT = bpr_cost_weight
+        self.ELECTRICITY_COST_WEIGHT = electricity_cost_weight
 
         all_nodes = self.node_df['node_id'].unique().tolist()
 
@@ -326,11 +329,12 @@ class BrfSolver:
         model.hideOutput()
         obj = scip.Expr()
         for arc_id in self.arc_info_dict:
-            obj += var.get(('bpr', arc_id), 0) * 1.0
+            obj += var.get(('bpr', arc_id), 0) * self.dh.BPR_COST_WEIGHT
         for ev_node in IESS_nodes + EVCS_nodes:
             vir_n = 'vir_' + str(ev_node)
             obj += var['ev_wt', vir_n] * self.dh.EV_WAIT_PENALTY
-            obj += var['ev_in', vir_n] * 1.0 * elc_price[ev_node] * self.dh.EV_ELE_VOL
+            obj += (var['ev_in', vir_n] * self.dh.ELECTRICITY_COST_WEIGHT
+                    * elc_price[ev_node] * self.dh.EV_ELE_VOL)
 
         model.setObjective(obj, 'minimize')
         # model.writeProblem('D://model.lp')
