@@ -128,8 +128,7 @@ class GridModel:
         for t in self.T:
             for idx in range(self.SIZE):
                 b = self.nodes[idx//self.N_PH]
-                # vv[('v',t,idx)] = m.addVar(vtype = 'C',lb = self.vmin.get(b,0.9),ub = self.vmax.get(b,1.1))
-                vv[('v',t,idx)] = m.addVar(vtype = 'C', lb = self.vmin.get(b,0.9) ** 2, ub = self.vmax.get(b,1.1) ** 2,)
+                vv[('v',t,idx)] = m.addVar(vtype = 'C',lb = self.vmin.get(b,0.9),ub = self.vmax.get(b,1.1))
                 vv[('p',t,idx)] = m.addVar(vtype = 'C',lb = -np.inf)
                 vv[('q',t,idx)] = m.addVar(vtype = 'C',lb = -np.inf)
 
@@ -202,10 +201,11 @@ class GridModel:
                 
         for k in list(vv.keys()):
             if k[0].startswith('sl'): 
-                obj  +=  vv[k]*SWAP_PENALTY
+                obj  +=  vv[k] * SWAP_PENALTY
 
         m.setObjective(obj,'minimize')
         m.setRealParam('limits/time',300)
+        m.hideOutput()
         # m.writeProblem('D://model.lp')
         m.optimize()
         st = m.getStatus()
@@ -216,11 +216,9 @@ class GridModel:
         slack_vals = {}
         for k in list(vv.keys()):
             if k[0].startswith('sl'):
-                try:
-                    rd = self.nodes [int(k[-1] / 3)]
-                    slack_vals[rd] = round(m.getVal(vv[k]),6)
-                except:
-                    pass
+                rd = self.nodes [int(k[-1] / self.N_PH)]
+                slack_vals[k[1], rd] = slack_vals.get((k[1], rd), 0) + round(m.getVal(vv[k]),6)
+
         return {'status':st,'slack_vals':slack_vals}
 
     def post_handle(self):

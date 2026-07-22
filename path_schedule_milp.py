@@ -1,7 +1,8 @@
 import numpy as np
 import pandas as pd
 import random
-import pyscipopt as scip
+import gurobipy as gp
+from gurobipy import GRB
 import warnings
 from collections import defaultdict
 from road_graph import RoadNetwork
@@ -125,13 +126,6 @@ class DataHandler:
                     self.cp_paths[(c1, c2)].append(pid_c)
                     pid_c += 1
         print(f"  OD pairs: {len(self.cp_paths)}")
-
-        self.out_nb = defaultdict(list)
-        self.in_nb = defaultdict(list)
-        for (c1, c2) in self.cp_paths:
-            self.out_nb[c1].append(c2)
-            self.in_nb[c2].append(c1)
-
         # ---- IESS 检测 ----
         self.iess_p = set()
         self.piess = {}
@@ -159,6 +153,19 @@ class DataHandler:
                     # 复用原路径的node_path
                     self.pnodes[vp_id] = self.pnodes.get(p)
         self.cp_paths = dict(new_cp)
+        self.iess_p = {'swap_' + str(p) for p in self.iess_p}
+        self.piess = {'swap_' + str(p):n for p, n in self.piess.items()}
+
+        self.out_nb = defaultdict(list)
+        self.in_nb = defaultdict(list)
+        for (c1, c2) in self.cp_paths:
+            self.out_nb[c1].append(c2)
+            self.in_nb[c2].append(c1)
+        
+
+        
+        
+        
 
         # ---- 用 arc_res time=0 替换 (含虚拟路径) ----
         T = 60
@@ -225,8 +232,8 @@ class DataHandler:
                 r['due_time_h'] * T
             )
         self.total_dmd = sum(self.dmd.values())
-        self.NV_MAX = max(2, int(np.ceil(self.total_dmd / 40.0)) + 1)
-        self.NV_MAX = min(self.NV_MAX, len(self.customers))
+        self.NV_MAX = max(2, int(np.ceil(self.total_dmd / 30)) + 1)
+        self.NV_MAX =  min(self.NV_MAX, len(self.customers))
         print(f"  Total demand: {self.total_dmd:.1f}t, "
               f"Max vehicles: {self.NV_MAX}")
 
@@ -288,6 +295,21 @@ class DataHandler:
 
 
 class TwoStageSolver:
+    @staticmethod
+    def _status_name(model):
+        status_map = {
+            GRB.OPTIMAL: 'optimal',
+            GRB.INFEASIBLE: 'infeasible',
+            GRB.UNBOUNDED: 'unbounded',
+            GRB.INF_OR_UNBD: 'inf_or_unbd',
+            GRB.TIME_LIMIT: 'timelimit',
+            GRB.SOLUTION_LIMIT: 'bestsollimit',
+            GRB.INTERRUPTED: 'interrupted',
+            GRB.NUMERIC: 'numeric',
+            GRB.SUBOPTIMAL: 'suboptimal',
+        }
+        return status_map.get(model.Status, str(model.Status))
+
     def __init__(self, dh: DataHandler, time_limit=120, gap=0.05,
                  num_veh=None):
         self.dh = dh
@@ -300,8 +322,8 @@ class TwoStageSolver:
         self.M = 1e6
         self.MAX_PL = 40.0
         self.BK = 0.6
-        self.WK = 0.02
-        self.SOC_EST = self.EMPTY + self.MAX_PL * 0.5
+        self.WK = 0.08
+        self.SOC_EST = self.EMPTY + self.MAX_PL * 0.8
         self.num_veh = num_veh if num_veh else dh.NV_MAX
 
         print("\n" + "=" * 70 +
@@ -310,66 +332,66 @@ class TwoStageSolver:
     def _stage1_route_optimization(self):
         dh = self.dh
         NV = self.num_veh
-        m1 = scip.Model('Stage1_Route')
+        m1 = gp.Model('Stage1_Route')
         v1 = {}
 
         for vid in range(NV):
-            v1[('use', vid)] = m1.addVar(vtype='B')
+            v1[('use', vid)] = m1.addVar(vtype=GRB.BINARY)
         for vid in range(NV):
             for c in dh.customers + [self.DEPOT]:
-                v1[('vv', vid, c)] = m1.addVar(vtype='B')
+                v1[('vv', vid, c)] = m1.addVar(vtype=GRB.BINARY)
                 v1[('soc', vid, c)] = m1.addVar(
-                    vtype='C', lb=0, ub=self.BATT_CAP)
+                    vtype=GRB.CONTINUOUS, lb=0, ub=self.BATT_CAP)
 
         for vid in range(NV):
             for c in dh.customers:
-                v1[('vx', vid, self.DEPOT, c)] = m1.addVar(vtype='B')
-                v1[('vx', vid, c, self.DEPOT)] = m1.addVar(vtype='B')
+                v1[('vx', vid, self.DEPOT, c)] = m1.addVar(vtype=GRB.BINARY)
+                v1[('vx', vid, c, self.DEPOT)] = m1.addVar(vtype=GRB.BINARY)
             for (c1, c2) in dh.cp_paths:
-                v1[('vx', vid, c1, c2)] = m1.addVar(vtype='B')
+                v1[('vx', vid, c1, c2)] = m1.addVar(vtype=GRB.BINARY)
 
         for c in dh.customers:
-            m1.addCons(scip.quicksum(v1[('vv', vid, c)]
+            m1.addConstr(gp.quicksum(v1[('vv', vid, c)]
                         for vid in range(NV)) == 1)
 
         for vid in range(NV):
-            m1.addCons(scip.quicksum(v1[('vv', vid, c)]
+            m1.addConstr(gp.quicksum(v1[('vv', vid, c)]
                         for c in dh.customers) <= v1[('use', vid)] * self.M)
 
         for vid in range(NV):
-            d_out = scip.quicksum(v1[('vx', vid, self.DEPOT, c)]
+            d_out = gp.quicksum(v1[('vx', vid, self.DEPOT, c)]
                                   for c in dh.customers)
-            d_in = scip.quicksum(v1[('vx', vid, c, self.DEPOT)]
+            d_in = gp.quicksum(v1[('vx', vid, c, self.DEPOT)]
                                  for c in dh.customers)
-            m1.addCons(d_out == v1[('vv', vid, self.DEPOT)])
-            m1.addCons(d_in == v1[('vv', vid, self.DEPOT)])
-            m1.addCons(v1[('vv', vid, self.DEPOT)] <= v1[('use', vid)])
+            m1.addConstr(d_out == v1[('vv', vid, self.DEPOT)])
+            m1.addConstr(d_in == v1[('vv', vid, self.DEPOT)])
+            m1.addConstr(v1[('vv', vid, self.DEPOT)] <= v1[('use', vid)])
 
             for c in dh.customers:
                 inf_ = v1[('vx', vid, self.DEPOT, c)]
                 for pre in dh.in_nb.get(c, []):
                     if ('vx', vid, pre, c) in v1:
                         inf_ += v1[('vx', vid, pre, c)]
-                m1.addCons(inf_ == v1[('vv', vid, c)])
+                m1.addConstr(inf_ == v1[('vv', vid, c)])
 
                 outf = v1[('vx', vid, c, self.DEPOT)]
                 for nx in dh.out_nb.get(c, []):
                     if ('vx', vid, c, nx) in v1:
                         outf += v1[('vx', vid, c, nx)]
-                m1.addCons(outf == v1[('vv', vid, c)])
+                m1.addConstr(outf == v1[('vv', vid, c)])
 
         for vid in range(NV):
-            m1.addCons(scip.quicksum(v1[('vv', vid, c)] * dh.dmd[c]
+            m1.addConstr(gp.quicksum(v1[('vv', vid, c)] * dh.dmd[c]
                         for c in dh.customers) <= self.MAX_PL)
 
         for vid in range(NV):
-            m1.addCons(v1[('soc', vid, self.DEPOT)]
+            m1.addConstr(v1[('soc', vid, self.DEPOT)]
                        == self.BATT_CAP * v1[('use', vid)])
             for c in dh.customers:
                 sd = dh.dep_d[c] * (self.BK + self.WK * self.SOC_EST)
-                m1.addCons(v1[('soc', vid, c)] >= self.BATT_CAP - sd -
+                m1.addConstr(v1[('soc', vid, c)] >= self.BATT_CAP - sd -
                            (1 - v1[('vx', vid, self.DEPOT, c)]) * self.M)
-                m1.addCons(v1[('soc', vid, c)] <= self.BATT_CAP +
+                m1.addConstr(v1[('soc', vid, c)] <= self.BATT_CAP +
                            (1 - v1[('vx', vid, self.DEPOT, c)]) * self.M)
                 for pre in dh.in_nb.get(c, []):
                     if ('vx', vid, pre, c) not in v1:
@@ -377,39 +399,41 @@ class TwoStageSolver:
                     su = dh.cp_avg_d.get((pre, c), 0) * \
                         (self.BK + self.WK * self.SOC_EST)
                     if dh.cp_has_iess.get((pre, c), False):
-                        m1.addCons(v1[('soc', vid, c)] >= self.BATT_CAP -
+                        m1.addConstr(v1[('soc', vid, c)] >= self.BATT_CAP -
                                    (1 - v1[('vx', vid, pre, c)]) * self.M)
-                        m1.addCons(v1[('soc', vid, c)] <= self.BATT_CAP +
+                        m1.addConstr(v1[('soc', vid, c)] <= self.BATT_CAP +
                                    (1 - v1[('vx', vid, pre, c)]) * self.M)
                     else:
-                        m1.addCons(v1[('soc', vid, c)] >= v1[
+                        m1.addConstr(v1[('soc', vid, c)] >= v1[
                                    ('soc', vid, pre)] - su - (1 - v1[('vx', vid, pre, c)]) * self.M)
-                        m1.addCons(v1[('soc', vid, c)] <= v1[
+                        m1.addConstr(v1[('soc', vid, c)] <= v1[
                                    ('soc', vid, pre)] - su + (1 - v1[('vx', vid, pre, c)]) * self.M)
-                m1.addCons(v1[('soc', vid, c)]
+                m1.addConstr(v1[('soc', vid, c)]
                            >= self.BATT_MIN * v1[('vv', vid, c)])
 
-        obj1 = scip.Expr()
+        obj1 = gp.LinExpr()
         for vid in range(NV):
-            obj1 += v1[('use', vid)] * 50000
+            obj1 += v1[('use', vid)] * 5000
         for vid in range(NV):
             for c in dh.customers:
-                obj1 += v1[('vx', vid, self.DEPOT, c)] *  dh.dep_d[c] * 0.1
-                obj1 += v1[('vx', vid, c, self.DEPOT)] * dh.dep_d[c] * 0.1
+                obj1 += v1[('vx', vid, self.DEPOT, c)] *  dh.dep_d[c] * 10
+                obj1 += v1[('vx', vid, c, self.DEPOT)] * dh.dep_d[c] * 10
             for (c1, c2) in dh.cp_paths:
-                obj1 += v1[('vx', vid, c1, c2)] * dh.cp_avg_d.get((c1, c2), 0) * 0.1
+                obj1 += v1[('vx', vid, c1, c2)] * dh.cp_avg_d.get((c1, c2), 0) * 10
 
-        m1.setObjective(obj1, 'minimize')
-        m1.setRealParam('limits/time', 60)
-        m1.setRealParam('limits/gap', 0.05)
-        m1.hideOutput()
+        m1.setObjective(obj1, GRB.MINIMIZE)
+        m1.setParam('TimeLimit', 60)
+        m1.setParam('MIPGap', 0.05)
+        m1.setParam('OutputFlag', 0)
+        # m1.write('D://model.lp')
         m1.optimize()
         return m1, v1
 
     def _extract_routes(self, m1, v1):
         dh = self.dh
-        sol1 = {k: m1.getVal(vv) for k, vv in v1.items() if m1.getStatus()
-                in ('optimal', 'bestsollimit', 'gaplimit')}
+        s1 = self._status_name(m1)
+        sol1 = {k: vv.X for k, vv in v1.items()
+                if s1 in ('optimal', 'bestsollimit', 'gaplimit') and m1.SolCount > 0}
         routes = {}
         for vid in range(self.num_veh):
             if sol1.get(('use', vid), 0) < 0.5:
@@ -558,30 +582,30 @@ class TwoStageSolver:
             for i in range(len(rt) - 1):
                 arcs_used.add((rt[i], rt[i + 1]))
 
-        m2 = scip.Model('Stage2_Path')
+        m2 = gp.Model('Stage2_Path')
         v2 = {}
 
         for vid, rt in routes.items():
             if not rt:
                 continue
             for c in rt + [self.DEPOT]:
-                v2[('wt', vid, c)] = m2.addVar(vtype='C', lb=0)
+                v2[('wt', vid, c)] = m2.addVar(vtype=GRB.CONTINUOUS, lb=0)
                 v2[('soc', vid, c)] = m2.addVar(
-                    vtype='C', lb=0, ub=self.BATT_CAP)
-                v2[('at', vid, c)] = m2.addVar(vtype='C', lb=0)
-                v2[('et', vid, c)] = m2.addVar(vtype='C', lb=0)
+                    vtype=GRB.CONTINUOUS, lb=0, ub=self.BATT_CAP)
+                v2[('at', vid, c)] = m2.addVar(vtype=GRB.CONTINUOUS, lb=0)
+                v2[('et', vid, c)] = m2.addVar(vtype=GRB.CONTINUOUS, lb=0)
             for c in rt:
-                v2[('cs', vid, c)] = m2.addVar(vtype='C', lb=0)
-                v2[('csa', vid, c)] = m2.addVar(vtype='B')
-                v2[('ce', vid, c)] = m2.addVar(vtype='C', lb=0)
-                v2[('cea', vid, c)] = m2.addVar(vtype='B')
+                v2[('cs', vid, c)] = m2.addVar(vtype=GRB.CONTINUOUS, lb=0)
+                # v2[('csa', vid, c)] = m2.addVar(vtype=GRB.BINARY)
+                v2[('ce', vid, c)] = m2.addVar(vtype=GRB.CONTINUOUS, lb=0)
+                # v2[('cea', vid, c)] = m2.addVar(vtype=GRB.BINARY)
             for (c1, c2), pl in dh.cp_paths.items():
                 if (c1, c2) in arcs_used:
                     for p in pl:
-                        v2[('vp', vid, c1, c2, p)] = m2.addVar(vtype='B')
+                        v2[('vp', vid, c1, c2, p)] = m2.addVar(vtype=GRB.BINARY)
             for i in range(len(rt) - 1):
                 c1, c2 = rt[i], rt[i + 1]
-                v2[('sw_flag', vid, c1, c2)] = m2.addVar(vtype='B')
+                v2[('sw_flag', vid, c1, c2)] = m2.addVar(vtype=GRB.BINARY)
 
         # Path selection
         for vid, rt in routes.items():
@@ -591,90 +615,90 @@ class TwoStageSolver:
                 c1, c2 = rt[i], rt[i + 1]
                 pl = dh.cp_paths.get((c1, c2), [])
                 if pl:
-                    m2.addCons(scip.quicksum(
+                    m2.addConstr(gp.quicksum(
                         v2[('vp', vid, c1, c2, p)] for p in pl) == 1)
                 hi = [p for p in pl if p in dh.iess_p]
                 if hi:
-                    m2.addCons(scip.quicksum(
+                    m2.addConstr(gp.quicksum(
                         v2[('vp', vid, c1, c2, p)] for p in hi) == v2[('sw_flag', vid, c1, c2)])
 
         # Weight
         for vid, rt in routes.items():
             if not rt:
                 continue
-            m2.addCons(v2[('wt', vid, self.DEPOT)] == self.EMPTY)
+            m2.addConstr(v2[('wt', vid, self.DEPOT)] == self.EMPTY)
             w = self.EMPTY
             for c in reversed(rt):
                 w += dh.dmd[c]
-                m2.addCons(v2[('wt', vid, c)] == w)
+                m2.addConstr(v2[('wt', vid, c)] == w)
 
         # Time
         for vid, rt in routes.items():
             if not rt:
                 continue
-            m2.addCons(v2[('at', vid, rt[0])] == dh.dep_t[rt[0]])
-            m2.addCons(v2[('et', vid, self.DEPOT)] == 0)
+            m2.addConstr(v2[('at', vid, rt[0])] == dh.dep_t[rt[0]])
+            m2.addConstr(v2[('et', vid, self.DEPOT)] == 0)
             for i, c in enumerate(rt):
                 tw0, tw1 = dh.tw[c]
-                m2.addCons(v2[('et', vid, c)]
+                m2.addConstr(v2[('et', vid, c)]
                            >= v2[('at', vid, c)] + dh.svc[c])
                 if i < len(rt) - 1:
                     nc = rt[i + 1]
-                    dur = scip.quicksum(
+                    dur = gp.quicksum(
                         v2[('vp', vid, c, nc, p)] * dh.cp_t.get((c, nc, p), 0)
                         for p in dh.cp_paths.get((c, nc), []))
-                    m2.addCons(v2[('at', vid, nc)] >= v2[(
+                    m2.addConstr(v2[('at', vid, nc)] >= v2[(
                         'et', vid, c)] + dur + v2[('sw_flag', vid, c, nc)] * 15)
-                m2.addCons(v2[('cs', vid, c)] >= tw0 - v2[('et', vid, c)])
-                m2.addCons(v2[('cs', vid, c)] <= v2[('csa', vid, c)] * self.M)
-                m2.addCons(v2[('cs', vid, c)] <= tw0 - v2[(
-                    'et', vid, c)] + (1 - v2[('csa', vid, c)]) * self.M)
-                m2.addCons(v2[('ce', vid, c)]
+                m2.addConstr(v2[('cs', vid, c)] >= tw0 - v2[('at', vid, c)])
+                # m2.addConstr(v2[('cs', vid, c)] <= v2[('csa', vid, c)] * self.M)
+                # m2.addConstr(v2[('cs', vid, c)] <= tw0 - v2[(
+                #     'at', vid, c)] + (1 - v2[('csa', vid, c)]) * self.M)
+                m2.addConstr(v2[('ce', vid, c)]
                            >= v2[('et', vid, c)] - tw1)
-                m2.addCons(v2[('ce', vid, c)] <= v2[('cea', vid, c)] * self.M)
-                m2.addCons(v2[('ce', vid, c)] <= v2[(
-                    'et', vid, c)] - tw1 + (1 - v2[('cea', vid, c)]) * self.M)
+                # m2.addConstr(v2[('ce', vid, c)] <= v2[('cea', vid, c)] * self.M)
+                # m2.addConstr(v2[('ce', vid, c)] <= v2[(
+                #     'et', vid, c)] - tw1 + (1 - v2[('cea', vid, c)]) * self.M)
 
         # SOC
         for vid, rt in routes.items():
             if not rt:
                 continue
-            m2.addCons(v2[('soc', vid, self.DEPOT)] == self.BATT_CAP)
+            m2.addConstr(v2[('soc', vid, self.DEPOT)] == self.BATT_CAP)
             c0 = rt[0]
             sf = max(self.BATT_CAP - dh.dep_d[c0] *
                      (self.BK + self.WK * (self.EMPTY + sum(dh.dmd[cc] for cc in rt))), self.BATT_MIN)
-            m2.addCons(v2[('soc', vid, c0)] == sf)
+            m2.addConstr(v2[('soc', vid, c0)] == sf)
             for i in range(len(rt) - 1):
                 c1, c2 = rt[i], rt[i + 1]
                 for p in dh.cp_paths.get((c1, c2), []):
                     dk = dh.cp_d.get((c1, c2, p), 0)
                     su = dk * (self.BK + self.WK * v2[('wt', vid, c1)])
                     if str(p).startswith('swap_'):
-                        m2.addCons(v2[('soc', vid, c2)] >= self.BATT_CAP -
+                        m2.addConstr(v2[('soc', vid, c2)] >= self.BATT_CAP -
                                    (1 - v2[('vp', vid, c1, c2, p)]) * self.M)
-                        m2.addCons(v2[('soc', vid, c2)] <= self.BATT_CAP +
+                        m2.addConstr(v2[('soc', vid, c2)] <= self.BATT_CAP +
                                    (1 - v2[('vp', vid, c1, c2, p)]) * self.M)
                     else:
-                        m2.addCons(v2[('soc', vid, c2)] >= v2[(
+                        m2.addConstr(v2[('soc', vid, c2)] >= v2[(
                             'soc', vid, c1)] - su - (1 - v2[('vp', vid, c1, c2, p)]) * self.M)
-                        m2.addCons(v2[('soc', vid, c2)] <= v2[(
+                        m2.addConstr(v2[('soc', vid, c2)] <= v2[(
                             'soc', vid, c1)] - su + (1 - v2[('vp', vid, c1, c2, p)]) * self.M)
-            if rt:
-                m2.addCons(v2[('soc', vid, rt[-1])] >= self.BATT_MIN)
+            # if rt:
+            #     m2.addConstr(v2[('soc', vid, rt[-1])] >= self.BATT_MIN)
 
         # Objective
-        obj2 = scip.Expr()
+        obj2 = gp.LinExpr()
         for vid, rt in routes.items():
             if not rt:
                 continue
             for i in range(len(rt) - 1):
                 c1, c2 = rt[i], rt[i + 1]
                 pl = dh.cp_paths.get((c1, c2), [])
-                obj2 += scip.quicksum(
-                    v2[('vp', vid, c1, c2, p)] * dh.cp_t.get((c1, c2, p), 0) for p in pl)
+                obj2 += gp.quicksum(
+                    v2[('vp', vid, c1, c2, p)] * dh.cp_t.get((c1, c2, p), 0) *  60 for p in pl)
         for vid, rt in routes.items():
             for c in rt:
-                obj2 += v2[('cs', vid, c)] * 0.01 + v2[('ce', vid, c)] * 0.02
+                obj2 += v2[('cs', vid, c)] * 0.1 + v2[('ce', vid, c)] * 0.2
         # Swap cost 
         for vid, rt in routes.items():
             for i in range(len(rt) - 1):
@@ -684,12 +708,13 @@ class TwoStageSolver:
                     if is_vp and dh.virtual_iess.get(p) in dh.IESS_NODES:
                         iess_node = dh.virtual_iess[p]
                         price = dh.ele_price.get(iess_node, 1.0)
-                        obj2 += v2[('vp', vid, c1, c2, p)] * 50 * price
+                        obj2 += v2[('vp', vid, c1, c2, p)] * price
       
-        m2.setObjective(obj2, 'minimize')
-        m2.setRealParam('limits/time', 60)
-        m2.setRealParam('limits/gap', 0.01)
-        m2.hideOutput()
+        m2.setObjective(obj2, GRB.MINIMIZE)
+        m2.setParam('TimeLimit', 60)
+        m2.setParam('MIPGap', 0.01)
+        m2.write('model.lp')
+        m2.setParam('OutputFlag', 0)
         return m2, v2
 
     def solve(self):
@@ -699,11 +724,11 @@ class TwoStageSolver:
         print("\n>>> Stage1: Route Order Optimization")
         m1, v1 = self._stage1_route_optimization()
         m1.optimize()
-        s1 = m1.getStatus()
+        s1 = self._status_name(m1)
 
         routes = {}
-        if s1 in ('optimal', 'bestsollimit', 'gaplimit'):
-            print(f"  S1: {s1} obj={m1.getObjVal():.1f}")
+        if s1 in ('optimal', 'bestsollimit', 'gaplimit') and m1.SolCount > 0:
+            print(f"  S1: {s1} obj={m1.ObjVal:.1f}")
             routes = self._extract_routes(m1, v1)
             self.NV = len(routes)
         else:
@@ -719,13 +744,13 @@ class TwoStageSolver:
         print("\n>>> Stage2: Path Selection")
         m2, v2 = self._stage2_path_selection(routes)
         m2.optimize()
-        s2 = m2.getStatus()
-        if s2 in ('optimal', 'bestsollimit', 'gaplimit', 'timelimit'):
-            print(f"  S2: {s2} obj={m2.getObjVal():.1f}")
+        s2 = self._status_name(m2)
+        if s2 in ('optimal', 'bestsollimit', 'gaplimit', 'timelimit') and m2.SolCount > 0:
+            print(f"  S2: {s2} obj={m2.ObjVal:.1f}")
         else:
             print(f"  S2: {s2}")
 
-        self._sol = {k: m2.getVal(vv) for k, vv in v2.items()}
+        self._sol = {k: vv.X for k, vv in v2.items()}
         self._routes = routes
         self._m2 = m2
         self._v2 = v2
@@ -906,11 +931,11 @@ class TwoStageSolver:
                             soc_out = self.BATT_CAP
                             break
                     swap_rows.append((vid, ie_n, round(at_, 1),
-                                      round(soc_v, 1), round(soc_out, 1), round(sw_kwh, 1)))
+                                      round(soc_out - sw_kwh, 1), round(soc_out, 1), round(sw_kwh, 1)))
 
                 route_rows.append((vid, i + 1, c, pid, round(at_, 1), round(et_, 1),
                                    round(travel_t, 1), round(travel_d, 2), dh.dmd.get(c, 0),
-                                   round(wt_, 3), round(soc_v, 1), round(soc_out, 1),
+                                   round(wt_, 3), round(soc_out - sw_kwh, 1), round(soc_out, 1),
                                    '1' if sw_kwh > 0 else '0', round(sw_kwh, 1), ie_n))
 
         self.swap_df = pd.DataFrame(swap_rows, columns=[
@@ -951,8 +976,11 @@ class TwoStageSolver:
 
 
 if __name__ == '__main__':
-    dh = DataHandler(num_customers=5, depot_node=10)
-    solver = TwoStageSolver(dh, time_limit=120, gap=0.05, num_veh=5)
+    IESS_NODES = [4, 3, 10, 9, 18]
+    iess_cap = {iess: 2 for iess in IESS_NODES}
+    iess_price = {4: 0.6, 3: 0.6, 10: 0.6, 9: 6.6, 18: 0.6, 42: 1.67, 36: 1.31, 71: 0.4, 23: 0.4, 62: 0.67, 73: 1.42, 20: 0.4, 11: 1.14, 46: 10.05, 28: 6.63}
+    dh = DataHandler(num_customers=80, depot_node=10,iess_node=IESS_NODES, iess_cap=iess_cap,iess_price=iess_price)
+    solver = TwoStageSolver(dh, time_limit=120, gap=0.05)
     solver.solve()
     solver.post_handle()
     solver.export_excel('path_schedule_milp_result.xlsx')

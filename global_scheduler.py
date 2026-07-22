@@ -4,14 +4,13 @@ import random
 import warnings
 import os
 from collections import defaultdict
-from brf_gurobi1 import BrfDataHandler, BrfSolver
 from grid_model import GridModel
 warnings.filterwarnings('ignore')
 random.seed(42)
 np.random.seed(42)
 
 class GlobalScheduler:
-    def __init__(self, num_customers=5, depot_node=10, max_iter=10,
+    def __init__(self, num_customers=5, depot_node=10, max_iter=30,
                  grid_xlsx='grid_impedance_catalog_3ph118.xlsx',
                  vrp_solver='milp'):  # 'scip' or 'milp'
         self.num_cust = num_customers
@@ -66,31 +65,19 @@ class GlobalScheduler:
         self.bus_to_station = {v:k for k, v in self.iess_to_bus.items()}
         self.bus_to_station.update({v:k for k, v in self.evcs_to_bus.items()})
 
-                # Fixed service capacities: IESS can serve 2 EVs; EVCS can serve 10 EVs.
-
+        # self.iess_cap = {iess: np.ceil(random.random()*10) for iess in self.IESS_NODES}
+        # self.evcs_cap = {evcs: np.ceil(random.random()*10) for evcs in self.EVCS_NODES}
+        self.iess_cap = {iess: 2 for iess in self.IESS_NODES}
+        self.evcs_cap = {evcs: 10 for evcs in self.EVCS_NODES}
         
-        # self.iess_cap = {iess: 2 for iess in self.IESS_NODES}
-        # self.evcs_cap = {evcs: 10 for evcs in self.EVCS_NODES}
-
-        # # Fixed IESS battery inventory for swap scheduling/inspection.
-        # self.iess_battery_inventory = {iess: 6 for iess in self.IESS_NODES}
-
         # self.ele_prices = {**{iess: round(random.random()*100,2) for iess in self.IESS_NODES},
         #                    **{evcs: round(random.random()*100,2) for evcs in self.EVCS_NODES}}
 
-                # Fixed service capacities: IESS can serve 2 EVs; EVCS can serve 10 EVs.
-        self.iess_cap = {iess: 2 for iess in self.IESS_NODES}
-        self.evcs_cap = {evcs: 10 for evcs in self.EVCS_NODES}
 
-        # Fixed IESS battery inventory for swap scheduling/inspection.
-        self.iess_battery_inventory = {iess: 6 for iess in self.IESS_NODES}
-
-
-
-        # Fixed normalized electricity prices (0-1 scale).
         # All IESS share one price; all EVCS share one price.
         self.iess_price = 0.60
         self.evcs_price = 0.40
+        self.max_service_price = 10.0
         self.electricity_cost_weight = 1.0
         self.slack_price_step = 0.10
         self.bpr_cost_weight = 1.0
@@ -103,16 +90,7 @@ class GlobalScheduler:
 
         print(f"  IESS: {self.IESS_NODES}")
         print(f"  EVCS: {self.EVCS_NODES}")
-        print(f"  IESS->bus: {self.iess_to_bus}")
-        print(f"  EVCS->bus: {self.evcs_to_bus}")
-        print(f"  IESS cap: {self.iess_cap}")
-        print(f"  EVCS cap: {self.evcs_cap}")
-        print(f"  IESS battery inventory: {self.iess_battery_inventory}")
-        print(f"  IESS price: {self.iess_price}")
-        print(f"  EVCS price: {self.evcs_price}")
-        print(f"  BPR cost weight: {self.bpr_cost_weight}")
-        print(f"  Wait penalty: {self.wait_penalty}")
-        print(f"  Electricity cost weight: {self.electricity_cost_weight}")
+        print(f"  Prices: {dict(list(self.ele_prices.items()))}")
 
     def run(self):
         for it in range(self.max_iter):
@@ -120,9 +98,7 @@ class GlobalScheduler:
 
             # Step 1: BPR
             print(">>> BPR")
-            # from brf_scip import BrfDataHandler, BrfSolver
-            from path_schedule_scip import DataHandler, VRPSolver, PostHandler
-
+            from brf_gurobi1 import BrfDataHandler, BrfSolver
             dh_brf = BrfDataHandler(iess_nodes=self.IESS_NODES, 
                                     evcs_nodes=self.EVCS_NODES,
                                     ele_price=self.ele_prices,
@@ -130,14 +106,11 @@ class GlobalScheduler:
                                     ev_wait_penalty=self.wait_penalty,
                                     bpr_cost_weight=self.bpr_cost_weight,
                                     electricity_cost_weight=self.electricity_cost_weight)
-
             solver_brf = BrfSolver(dh_brf)
             solver_brf.solve()
             solver_brf.post_handle(solver_brf.extract_results())
             solver_brf.export_excel('algo_bpr_res.xlsx')
             print("  Done")
-
-            
 
             # Step 2: VRP
             print(">>> VRP")
@@ -150,7 +123,7 @@ class GlobalScheduler:
                 dh_milp = MilpDataHandler(num_customers=self.num_cust, depot_node=self.depot_node,
                                           iess_node=self.IESS_NODES, iess_price=iess_prices,
                                           iess_cap=iess_caps)
-                solver_milp = TwoStageSolver(dh_milp, time_limit=120, gap=0.05, num_veh=5)
+                solver_milp = TwoStageSolver(dh_milp, time_limit=120, gap=0.05)
                 solver_milp.solve()
                 solver_milp.post_handle()
                 solver_milp.export_excel('path_schedule_result.xlsx')
@@ -158,8 +131,7 @@ class GlobalScheduler:
                 swap_df = solver_milp.swap_df.copy()
             else:
                 # ---- (default) ----
-                # from path_schedule_scip import DataHandler, VRPSolver, PostHandler
-                # from brf_gurobi1 import BrfDataHandler, BrfSolver
+                from path_schedule_scip import DataHandler, VRPSolver, PostHandler
                 dh_vrp = DataHandler(num_customers=self.num_cust, depot_node=self.depot_node,
                                      iess_node=self.IESS_NODES, iess_price=iess_prices,
                                      iess_cap=iess_caps)
@@ -231,7 +203,6 @@ class GlobalScheduler:
             for t, n in elc_info_dict:
                 total_swap_dict[int(t), n] = total_swap_dict.get((int(t), n), 0) + elc_info_dict[t,n]
 
-            
             gm=GridModel(n_time=96,n_nodes_pre=100)
             res=gm.build_and_solve(total_swap_dict,
                                    self.iess_to_bus,self.evcs_to_bus)
@@ -247,18 +218,16 @@ class GlobalScheduler:
 
             if max_slack < 1e-4 and st != 'infeasible':
                 print("  CONVERGED: Grid meets all demands ")
-                pd.DataFrame(res.get('duals',[]), columns=['type','node','time','dual'])\
-                  .to_csv('grid_shadow_prices.csv',index=False,encoding='utf-8-sig')
                 break
             updated = 0
             node_max_price = {}
             for k, v in sval.items():
                 if v is None or v < 1e-4: continue
-                node_id = self.bus_to_station[k] #转换回路网
+                node_id = self.bus_to_station[k[-1]] #转换回路网
                 node_max_price[node_id] = max(node_max_price.get(node_id,0), v)
             for node_id,v in node_max_price.items():
-                price_old = self.ele_prices.get(node_id, 0.0)
-                price_new = min(1.0, max(0.0, price_old + v * self.slack_price_step))
+                price_old = self.ele_prices.get(node_id, 1.0)
+                price_new =  price_old + v * self.slack_price_step  # slack  × factor
                 self.ele_prices[node_id] = round(price_new, 2)
                 updated += 1
                 print(f"    Node {node_id} slack={v:.4f} price: {price_old}→{price_new:.2f}")
