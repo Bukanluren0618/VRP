@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import random
+# import pyscipopt as gp
 import gurobipy as gp
 from gurobipy import GRB
 import warnings
@@ -14,6 +15,7 @@ random.seed(10)
 np.random.seed(10)
 
 
+class DataHandler:
     def __init__(self, num_customers=10, depot_node=10, iess_node=[],
                  iess_price={}, iess_cap={},
                  pickle_path='./raw_data_bpr.pkl',
@@ -231,7 +233,6 @@ np.random.seed(10)
             return [list(self.customers)]
 
         # kmeans = KMeans(n_clusters=n_groups, random_state=10, n_init='auto')
-        # labels = kmeans.fit_predict(coords)
         centroids, labels = kmeans2(coords, k=n_groups, minit='points')
 
         groups = defaultdict(list)
@@ -245,10 +246,7 @@ np.random.seed(10)
                 sub_n = max(1, int(np.ceil(len(g) / group_size)))
                 sub_coords = np.array(
                     [coords[self.customers.index(c)] for c in g])
-                # sub_kmeans = KMeans(n_clusters=min(sub_n, len(g)),
-                #                     random_state=10, n_init='auto')
                 _,sub_labels = kmeans2(sub_coords, k=min(sub_n, len(g)), minit='points')
-                # sub_labels = sub_kmeans.fit_predict(sub_coords)
                 sub_groups = defaultdict(list)
                 for j, c in enumerate(g):
                     sub_groups[int(sub_labels[j])].append(c)
@@ -428,8 +426,7 @@ class VRPSolver:
                 for p in pl:
                     var[('vp', v, c1, c2, p)] = model.addVar(vtype='B')
 
-        model.update()
-        print(f"  Vars: {model.NumVars}")
+        # print(f"  Vars: {model.getNVars()}")
 
         # 需求覆盖
         for c in custs:
@@ -582,14 +579,13 @@ class VRPSolver:
                 model.addConstr(var[('soc', v, c)] <=
                               self.BATT_CAP * var[('vv', v, c)])
 
-        model.update()
-        print(f"  Constraints: {model.NumConstrs}")
+        # print(f"  Constraints: {model.getNConss()}")
 
         obj = gp.LinExpr()
 
         # 人力成本
         for v in range(NV):
-            obj += var[('vmt', v)] * 80
+            obj += var[('vmt', v)] * 200
 
         # 虚拟路径换电成本
         SWAP_BASE_COST = 50
@@ -616,7 +612,8 @@ class VRPSolver:
                 obj += var[('cs', v, c)] * 0.01
                 obj += var[('ce', v, c)] * 0.02
 
-        model.setObjective(obj, GRB.MINIMIZE)
+        model.setObjective(obj,  GRB.MINIMIZE)
+        # model.hideOutput()
         model.Params.OutputFlag = 0
         self.model = model
         self.var = var
@@ -625,24 +622,23 @@ class VRPSolver:
         print("\n" + "=" * 70 +
               f"\nVRPSolver: ({len(self.customers)} customers, {self.num_veh} veh)"
               + "\n" + "=" * 70)
-
         self.model.Params.TimeLimit = self.time_limit
         self.model.Params.MIPGap = self.gap
         self.model.optimize()
 
         status_map = {
-            GRB.OPTIMAL: 'optimal',
-            GRB.INFEASIBLE: 'infeasible',
-            GRB.INF_OR_UNBD: 'inf_or_unbd',
-            GRB.UNBOUNDED: 'unbounded',
-            GRB.TIME_LIMIT: 'time_limit',
-            GRB.NODE_LIMIT: 'node_limit',
-            GRB.ITERATION_LIMIT: 'iteration_limit',
-            GRB.SOLUTION_LIMIT: 'solution_limit',
-            GRB.INTERRUPTED: 'interrupted',
-            GRB.SUBOPTIMAL: 'suboptimal',
-            GRB.NUMERIC: 'numeric',
-        }
+                    GRB.OPTIMAL: 'optimal',
+                    GRB.INFEASIBLE: 'infeasible',
+                    GRB.INF_OR_UNBD: 'inf_or_unbd',
+                    GRB.UNBOUNDED: 'unbounded',
+                    GRB.TIME_LIMIT: 'time_limit',
+                    GRB.NODE_LIMIT: 'node_limit',
+                    GRB.ITERATION_LIMIT: 'iteration_limit',
+                    GRB.SOLUTION_LIMIT: 'solution_limit',
+                    GRB.INTERRUPTED: 'interrupted',
+                    GRB.SUBOPTIMAL: 'suboptimal',
+                    GRB.NUMERIC: 'numeric',
+                }
         st = status_map.get(self.model.Status, f'status_{self.model.Status}')
 
         if self.model.SolCount > 0:
@@ -659,6 +655,7 @@ class VRPSolver:
                     self.sol[k] = 0.0
         else:
             self.sol = {k: 0.0 for k in self.var}
+        
 
         dh = self.dh
         custs = self.customers
@@ -883,7 +880,7 @@ class PostHandler:
               f"Swap: {len(self.swap_df)} rows, "
               f"Summary: {len(self.v_df)} rows")
 
-    def export_excel(self, path='path_schedule_gurobi_result.xlsx'):
+    def export_excel(self, path='path_schedule_scip_result.xlsx'):
         out = {}
         if hasattr(self, 'v_df') and not self.v_df.empty:
             out['1_车辆汇总'] = self.v_df
@@ -984,7 +981,7 @@ class GroupedSolver:
               f"{len(self.route_df)} route rows, "
               f"{len(self.swap_df)} swap events")
 
-    def export_excel(self, path='path_schedule_gurobi_result.xlsx'):
+    def export_excel(self, path='path_schedule_scip_result.xlsx'):
         out = {}
         if hasattr(self, 'v_df') and not self.v_df.empty:
             out['1_车辆汇总'] = self.v_df
@@ -1014,5 +1011,5 @@ if __name__ == '__main__':
                      iess_price=iess_price)
     grouped_solver = GroupedSolver(dh, group_size=8, time_limit=300, gap=0.05)
     grouped_solver.solve()
-    grouped_solver.export_excel('path_schedule_gurobi_result.xlsx')
+    grouped_solver.export_excel('path_schedule_scip_result.xlsx')
     print("\nDONE!")

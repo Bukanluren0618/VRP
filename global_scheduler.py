@@ -3,6 +3,12 @@ import pandas as pd
 import random
 import warnings
 import os
+# 限制底层线性代数库线程，避免多线程库冲突
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
 from collections import defaultdict
 from grid_model import GridModel
 warnings.filterwarnings('ignore')
@@ -12,7 +18,7 @@ np.random.seed(42)
 class GlobalScheduler:
     def __init__(self, num_customers=5, depot_node=10, max_iter=30,
                  grid_xlsx='grid_impedance_catalog_3ph118.xlsx',
-                 vrp_solver='milp'):  # 'scip' or 'milp'
+                 vrp_solver='gurobi'):  # 'gurobi' or 'milp'
         self.num_cust = num_customers
         self.depot_node = depot_node
         self.max_iter = max_iter
@@ -73,11 +79,8 @@ class GlobalScheduler:
         # self.ele_prices = {**{iess: round(random.random()*100,2) for iess in self.IESS_NODES},
         #                    **{evcs: round(random.random()*100,2) for evcs in self.EVCS_NODES}}
 
-
-        # All IESS share one price; all EVCS share one price.
         self.iess_price = 0.60
         self.evcs_price = 0.40
-        self.max_service_price = 10.0
         self.electricity_cost_weight = 1.0
         self.slack_price_step = 0.10
         self.bpr_cost_weight = 1.0
@@ -98,7 +101,7 @@ class GlobalScheduler:
 
             # Step 1: BPR
             print(">>> BPR")
-            from brf_gurobi1 import BrfDataHandler, BrfSolver
+            from brf_gurobi import BrfDataHandler, BrfSolver
             dh_brf = BrfDataHandler(iess_nodes=self.IESS_NODES, 
                                     evcs_nodes=self.EVCS_NODES,
                                     ele_price=self.ele_prices,
@@ -118,83 +121,75 @@ class GlobalScheduler:
             iess_caps = {k:v for k,v in self.iess_cap.items() if k in self.IESS_NODES}
 
             if self.vrp_solver == 'milp':
-                # ---- Two-Stage MILP ----
-                from path_schedule_milp import DataHandler as MilpDataHandler, TwoStageSolver
-                dh_milp = MilpDataHandler(num_customers=self.num_cust, depot_node=self.depot_node,
-                                          iess_node=self.IESS_NODES, iess_price=iess_prices,
-                                          iess_cap=iess_caps)
-                solver_milp = TwoStageSolver(dh_milp, time_limit=120, gap=0.05)
-                solver_milp.solve()
-                solver_milp.post_handle()
-                solver_milp.export_excel('path_schedule_result.xlsx')
-                print(f"  Done. Swaps:{len(solver_milp.swap_df)}")
-                swap_df = solver_milp.swap_df.copy()
+                # ---- Two-Stage MILP (分组求解) ----
+                from path_schedule_milp import (
+                    DataHandler as MilpDataHandler,
+                    GroupedSolver as MilpGroupedSolver,
+                )
+                dh_vrp = MilpDataHandler(
+                    num_customers=self.num_cust,
+                    depot_node=self.depot_node,
+                    iess_node=self.IESS_NODES,
+                    iess_price=iess_prices,
+                    iess_cap=iess_caps,
+                )
+                solver = MilpGroupedSolver(
+                    dh_vrp,
+                    group_size=15,
+                    time_limit=120,
+                    gap=0.05,
+                )
+            elif self.vrp_solver == 'gurobi':
+                # ---- Gurobi VRP (分组求解) ----
+                from path_schedule_gurobi import (
+                    DataHandler as GurobiDataHandler,
+                    GroupedSolver as GurobiGroupedSolver,
+                )
+                dh_vrp = GurobiDataHandler(
+                    num_customers=self.num_cust,
+                    depot_node=self.depot_node,
+                    iess_node=self.IESS_NODES,
+                    iess_price=iess_prices,
+                    iess_cap=iess_caps,
+                )
+                solver = GurobiGroupedSolver(
+                    dh_vrp,
+                    group_size=15,
+                    time_limit=120,
+                    gap=0.05,
+                )
             else:
-                # ---- (default) ----
-                from path_schedule_scip import DataHandler, VRPSolver, PostHandler
-                dh_vrp = DataHandler(num_customers=self.num_cust, depot_node=self.depot_node,
-                                     iess_node=self.IESS_NODES, iess_price=iess_prices,
-                                     iess_cap=iess_caps)
-                dh_vrp.iess_p = set()
-                dh_vrp.piess = {}
-                for pid,np_ in dh_vrp.pnodes.items():
-                    if np_:
-                        for n in np_:
-                            if n in self.IESS_NODES:
-                                dh_vrp.iess_p.add(pid)
-                                dh_vrp.piess[pid]=n
-                                break
-                dh_vrp.is_virtual={}
-                dh_vrp.virtual_iess={}
-                dh_vrp.iess_virtual_paths_by_node=defaultdict(list)
-                new_cp=defaultdict(list)
-                for (c1,c2),pl in dh_vrp.cp_paths.items():
-                    for p in pl:
-                        new_cp[(c1,c2)].append(p)
-                        if p in dh_vrp.iess_p:
-                            vp='swap_'+str(p)
-                            new_cp[(c1,c2)].append(vp)
-                            dh_vrp.is_virtual[vp]=True
-                            dh_vrp.virtual_iess[vp]=dh_vrp.piess[p]
-                            dh_vrp.iess_virtual_paths_by_node[dh_vrp.piess[p]].append(vp)
-                            dh_vrp.pnodes[vp]=dh_vrp.pnodes.get(p)
-                dh_vrp.cp_paths=dict(new_cp)
-                T = 60
-                SW = 15
-                dh_vrp.cp_t={}
-                dh_vrp.cp_d={}
-                for (c1,c2),pl in dh_vrp.cp_paths.items():
-                    for p in pl:
-                        if str(p).startswith('swap_'):
-                            orig=int(str(p).replace('swap_',''))
-                            dh_vrp.cp_t[(c1,c2,p)]=dh_vrp.cp_t.get((c1,c2,orig),
-                                dh_vrp.compute_path_time(orig))+SW
-                            dh_vrp.cp_d[(c1,c2,p)]=dh_vrp.cp_d.get((c1,c2,orig),
-                                dh_vrp.compute_path_distance(orig))
-                        else:
-                            dh_vrp.cp_t[(c1,c2,p)]=dh_vrp.pth_raw.get(p,0) * T
-                            dh_vrp.cp_d[(c1,c2,p)]=dh_vrp.compute_path_distance(p)
-                solver_vrp=VRPSolver(dh_vrp,time_limit=60,gap=0.05,num_veh=5)
-                solver_vrp.solve()
-                ph_vrp=PostHandler(dh_vrp,solver_vrp)
-                ph_vrp.export_excel('path_schedule_result.xlsx')
-                print(f"  Done. Swaps:{len(ph_vrp.swap_events)}")
-                swap_df = ph_vrp.swap_df.copy()
+                raise ValueError(
+                    "vrp_solver 只能设置为 'gurobi' 或 'milp'"
+                )
+
+            solver.solve()
+            solver.export_excel('path_schedule_result.xlsx')
+            print(f"  Done. Swaps:{len(solver.swap_df)}")
+            swap_df = solver.swap_df.copy()
 
 
 
             # Step 3: Grid
             print(">>> Grid")
             # grid是每15分钟，算一个点，需要进行转换
-            swap_df = pd.read_excel('path_schedule_result.xlsx',sheet_name='3_换电站信息')
-            swap_df['grid_time'] = swap_df['换电时间min'].apply(lambda x: np.floor(float(x) / 15))
-            swap_df['换电量kWh'] = swap_df['换电量kWh'].astype(float)
-            swap_info_dict = swap_df.groupby(['grid_time','IESS节点']).apply(lambda x: x['换电量kWh'].sum()).to_dict()
-           
-            elc_df=pd.read_excel('algo_bpr_res.xlsx','elc_res')
-            elc_df['grid_time'] = elc_df['time'].apply(lambda x: np.floor(float(x) / 15))
-            elc_df['swap_qty'] = elc_df['swap_qty'].astype(float)
-            elc_info_dict = elc_df.groupby(['grid_time','elc_node']).apply(lambda x: x['swap_qty'].sum()).to_dict()
+            try:
+                swap_df = pd.read_excel('path_schedule_result.xlsx',sheet_name='3_换电站信息')
+                swap_df['grid_time'] = swap_df['换电时间min'].apply(lambda x: np.floor(float(x) / 15))
+                swap_df['换电量kWh'] = swap_df['换电量kWh'].astype(float)
+                swap_info_dict = swap_df.groupby(['grid_time','IESS节点']).apply(lambda x: x['换电量kWh'].sum()).to_dict()
+            except:
+                print("  ERROR: path_schedule_result.xlsx not found or invalid format")
+                swap_info_dict = {}
+            
+            try:
+                elc_df=pd.read_excel('algo_bpr_res.xlsx','elc_res')
+                elc_df['grid_time'] = elc_df['time'].apply(lambda x: np.floor(float(x) / 15))
+                elc_df['swap_qty'] = elc_df['swap_qty'].astype(float)
+                elc_info_dict = elc_df.groupby(['grid_time','elc_node']).apply(lambda x: x['swap_qty'].sum()).to_dict()
+            except:
+                print("  ERROR: algo_bpr_res.xlsx not found or invalid format")
+                elc_info_dict = {}
             
             #在电网节点汇总总电量需求
             total_swap_dict ={}
@@ -239,5 +234,6 @@ class GlobalScheduler:
         print("DONE")
 
 if __name__=='__main__':
-    gs=GlobalScheduler(num_customers=80,depot_node=10,max_iter=10)
+    gs=GlobalScheduler(num_customers=80, depot_node=10, max_iter=10,
+                       vrp_solver='gurobi')
     gs.run()
